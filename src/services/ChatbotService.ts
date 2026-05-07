@@ -58,7 +58,7 @@ export const ChatbotService = {
     if (!apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '') {
       if (localMatch) return localMatch.answer;
       console.error('Gemini API key is missing.');
-      return "The Triumph Assistant is currently unavailable because the API key is not configured. (Tip: Try asking about 'dress code' or 'requirements' for local info)";
+      return "I'm currently operating in a limited mode. You can still ask me about 'dress code', 'requirements', or 'scheduling'!";
     }
 
     try {
@@ -82,10 +82,10 @@ export const ChatbotService = {
       
       const errorString = typeof error === 'string' ? error : JSON.stringify(error) + (error.message || '');
 
-      // On quota error, try local FAQ as fallback
+      // On common errors, try local FAQ as fallback
       if (errorString.includes('QUOTA_EXCEEDED') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('credits are depleted') || error.status === 429) {
         if (localMatch) return localMatch.answer;
-        return "The chatbot quota has been reached. However, you can ask me about 'requirements', 'dress code', or 'scheduling' for basic information.";
+        return "I'm receiving a high volume of inquiries right now. For immediate help, feel free to ask about 'dress code', 'requirements', or how to 'book a session'.";
       }
       
       if (localMatch) return localMatch.answer;
