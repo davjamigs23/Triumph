@@ -1,5 +1,5 @@
 {
-  "name": "Triumph Yearbook Portal",
+  "name": "TRIUMPH",
   "description": "A high-performance portal for graduating students to manage yearbook requirements, document verification, and photo session scheduling.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": []
