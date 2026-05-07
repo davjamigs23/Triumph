@@ -16,21 +16,22 @@ Be professional, encouraging, and helpful.
 export const ChatbotService = {
   async getResponse(message: string) {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
+    
     if (!apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY') {
-      console.error('Gemini API key is missing. Ensure it is set in environment variables.');
+      console.error('Gemini API key is missing.');
       return "The Triumph Assistant is currently unavailable because the API key is not configured. Please contact the administrator.";
     }
 
     try {
       const genAI = new GoogleGenAI(apiKey);
-      const model = genAI.getGenerativeModel({
+      const model = genAI.getGenerativeModel({ 
         model: "gemini-1.5-flash",
         systemInstruction: SYSTEM_INSTRUCTION,
       });
 
-      const response = await model.generateContent(message);
-      const text = response.response.text();
-      return text || "I'm sorry, I couldn't process that request. Please try again or contact staff.";
+      const result = await model.generateContent(message);
+      const response = await result.response;
+      return response.text() || "I'm sorry, I couldn't process that request. Please try again or contact staff.";
     } catch (error) {
       console.error('Chatbot error:', error);
       return "I'm having trouble connecting right now. Please try again later.";
