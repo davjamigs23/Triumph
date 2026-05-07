@@ -215,7 +215,7 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
               
               {/* University Logo */}
               <div className="w-16 h-16 mb-3 flex items-center justify-center">
-                  <img src="https://upload.wikimedia.org/wikipedia/en/0/07/Ateneo_de_Naga_University_seal.svg" alt="ADNU Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                  <img src="https://upload.wikimedia.org/wikipedia/en/e/e2/Ateneo_de_Naga_University_logo.png" alt="ADNU Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
               </div>
 
               {/* Header Text */}
