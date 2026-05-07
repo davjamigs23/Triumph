@@ -15,7 +15,7 @@ interface Message {
 export default function FAQChat() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = localStorage.getItem('triumph_chat_history');
+    const saved = localStorage.getItem(user?.uid ? `triumph_chat_history_${user.uid}` : 'triumph_chat_history_guest');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -35,8 +35,12 @@ export default function FAQChat() {
   });
 
   useEffect(() => {
-    localStorage.setItem('triumph_chat_history', JSON.stringify(messages));
-  }, [messages]);
+    if (messages.length > 0) {
+      const key = user?.uid ? `triumph_chat_history_${user.uid}` : 'triumph_chat_history_guest';
+      localStorage.setItem(key, JSON.stringify(messages));
+    }
+  }, [messages, user?.uid]);
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -76,6 +80,21 @@ export default function FAQChat() {
     }
   };
 
+  const handleClearChat = () => {
+    if (confirm('Clear chat history?')) {
+      const key = user?.uid ? `triumph_chat_history_${user.uid}` : 'triumph_chat_history_guest';
+      localStorage.removeItem(key);
+      setMessages([
+        {
+          id: '1',
+          text: "Hello! I'm the Triumph Assistant. How can I help you with your yearbook requirements today?",
+          sender: 'bot',
+          timestamp: new Date()
+        }
+      ]);
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-160px)] bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-8 py-4 border-b border-gray-50 flex items-center justify-between bg-white z-10">
@@ -92,12 +111,7 @@ export default function FAQChat() {
           </div>
         </div>
         <button 
-          onClick={() => {
-            if (confirm('Clear chat history?')) {
-              localStorage.removeItem('triumph_chat_history');
-              window.location.reload();
-            }
-          }}
+          onClick={handleClearChat}
           className="p-2 text-gray-300 hover:text-red-500 transition-colors"
           title="Clear Chat"
         >

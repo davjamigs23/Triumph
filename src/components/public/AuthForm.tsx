@@ -36,7 +36,19 @@ export const AuthForm: React.FC = () => {
         await signUpWithEmail(email, password, displayName);
       }
     } catch (err: any) {
-      setMessage({ text: err.message, type: 'error' });
+      let errorMessage = err.message;
+      if (err.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Email/Password sign-in is disabled. Please enable it in the Firebase Console (Authentication > Sign-in method).';
+      } else if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Try logging in instead.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Password should be at least 6 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        errorMessage = 'Invalid email or password.';
+      }
+      setMessage({ text: errorMessage, type: 'error' });
     } finally {
       setLoading(false);
     }

@@ -15,25 +15,43 @@ Be professional, encouraging, and helpful.
 
 export const ChatbotService = {
   async getResponse(message: string) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
+    // Check multiple possible sources for the API key
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) ||
+                   (typeof window !== 'undefined' ? (window as any).VITE_GEMINI_API_KEY : undefined);
     
     if (!apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY') {
-      console.error('Gemini API key is missing.');
-      return "The Triumph Assistant is currently unavailable because the API key is not configured. Please contact the administrator.";
+      console.error('Gemini API key is missing. Expected VITE_GEMINI_API_KEY to be set.');
+      return "The Triumph Assistant is currently unavailable because the API key is not configured. Please ensure VITE_GEMINI_API_KEY is set in your environment variables.";
     }
 
     try {
-      const genAI = new GoogleGenAI(apiKey);
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
-        systemInstruction: SYSTEM_INSTRUCTION,
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{ role: "user", parts: [{ text: message }] }],
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          temperature: 0.7,
+        },
       });
 
-      const result = await model.generateContent(message);
-      const response = await result.response;
-      return response.text() || "I'm sorry, I couldn't process that request. Please try again or contact staff.";
-    } catch (error) {
-      console.error('Chatbot error:', error);
+      if (!response || !response.text) {
+        throw new Error('Empty response from Gemini API');
+      }
+
+      return response.text;
+    } catch (error: any) {
+      console.error('Gemini Chatbot Error:', error);
+      
+      // Provide more helpful error messages if possible
+      if (error.message?.includes('API_KEY_INVALID')) {
+        return "The provided Gemini API key is invalid. Please check your configuration.";
+      }
+      if (error.message?.includes('QUOTA_EXCEEDED')) {
+        return "The chatbot is currently busy. Please try again in a few minutes.";
+      }
+      
       return "I'm having trouble connecting right now. Please try again later.";
     }
   }
