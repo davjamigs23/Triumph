@@ -147,6 +147,7 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex w-[240px] flex-col bg-[#1a237e] text-white h-full z-20 shadow-2xl shrink-0">
         <div className="flex flex-col items-center pt-8 px-6">
+          <img src="https://upload.wikimedia.org/wikipedia/en/e/e2/Ateneo_de_Naga_University_logo.png" alt="ADNU Logo" className="w-16 h-16 mb-4" />
           <TriumphLogo showText={true} className="w-full px-2 mb-8 mt-2 drop-shadow-xl transition-transform hover:scale-105" light={true} />
           
           <div className="flex w-full bg-white/5 rounded-lg p-1.5 mb-10 border border-white/5">

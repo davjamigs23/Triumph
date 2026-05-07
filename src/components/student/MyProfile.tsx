@@ -56,17 +56,23 @@ export default function MyProfile() {
     }
   };
 
-  if (!user) return null;
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
 
-  const handleUpdateProfile = async (field: string, value: string) => {
+  const handleInputChange = (key: string, value: string) => {
+    setEditedValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveProfile = async () => {
     if (!user) return;
     try {
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, { [field]: value });
-      alert(`${field} updated successfully!`);
+      await updateDoc(userRef, editedValues);
+      setIsEditing(false);
+      setEditedValues({});
+      alert('Profile updated successfully!');
     } catch (error) {
       console.error(error);
-      alert(`Failed to update ${field}.`);
+      alert('Failed to update profile.');
     }
   };
 
@@ -86,7 +92,7 @@ export default function MyProfile() {
           <p className="text-sm text-gray-500 font-medium">Manage your personal information and yearbook settings.</p>
         </div>
         <button 
-          onClick={() => setIsEditing(!isEditing)}
+          onClick={isEditing ? handleSaveProfile : () => setIsEditing(!isEditing)}
           className="flex items-center gap-2 px-6 py-2.5 bg-[#1a237e] text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:shadow-xl transition-all"
         >
           <Edit3 className="h-4 w-4" />
@@ -153,7 +159,7 @@ export default function MyProfile() {
                     {isEditing && item.key ? (
                       <input 
                         defaultValue={item.value}
-                        onBlur={(e) => handleUpdateProfile(item.key!, e.target.value)}
+                        onChange={(e) => handleInputChange(item.key!, e.target.value)}
                         className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-lg font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#1a237e]/5"
                       />
                     ) : (
