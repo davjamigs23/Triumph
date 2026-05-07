@@ -2,19 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { db, storage } from '../../firebase';
 import { collection, query, getDocs, orderBy, limit, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { FileText, Search, CreditCard, DollarSign, Download, Plus, X, Upload } from 'lucide-react';
+import { FileText, Search, CreditCard, DollarSign, Download, Plus, X, Upload, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { AuditService } from '../../services/AuditService';
-
-interface Receipt {
-  id: string;
-  studentId: string;
-  purpose: string;
-  status: 'PAID' | 'PENDING';
-  date: string;
-  referenceNo: string;
-  imageUrl?: string;
-}
+import { ReceiptService, Receipt } from '../../services/ReceiptService';
 
 export default function AdminReceipts() {
   const { user } = useAuth();
@@ -27,11 +18,23 @@ export default function AdminReceipts() {
 
   const fetchReceipts = async () => {
     try {
-      const q = query(collection(db, 'receipts'), orderBy('date', 'desc'), limit(100));
-      const snap = await getDocs(q);
-      setReceipts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Receipt)));
+      const data = await ReceiptService.getAllReceipts();
+      setReceipts(data);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!user) return;
+    if (!confirm('Permanently delete this receipt record?')) return;
+    try {
+      await ReceiptService.deleteReceipt(id, user.uid);
+      setReceipts(receipts.filter(r => r.id !== id));
+      alert('Receipt deleted.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete receipt');
     }
   };
 
@@ -96,12 +99,13 @@ export default function AdminReceipts() {
               <th className="px-8 py-4">Purpose</th>
               <th className="px-8 py-4">Status</th>
               <th className="px-8 py-4">Image</th>
-              <th className="px-8 py-4 text-right">Date</th>
+              <th className="px-8 py-4">Date</th>
+              <th className="px-8 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50 font-bold">
             {receipts.map((r) => (
-              <tr key={r.id} className="hover:bg-gray-50/50 transition-colors text-sm">
+              <tr key={r.id} className="hover:bg-gray-50/50 transition-colors text-sm group">
                 <td className="px-8 py-4 font-mono text-gray-400">{r.referenceNo}</td>
                 <td className="px-8 py-4 text-[#0d1b2a]">{r.studentId}</td>
                 <td className="px-8 py-4 uppercase text-[11px]">{r.purpose.replace('_', ' ')}</td>
@@ -111,8 +115,17 @@ export default function AdminReceipts() {
                 <td className="px-8 py-4">
                   {r.imageUrl && <a href={r.imageUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700 underline text-[10px]">View</a>}
                 </td>
-                <td className="px-8 py-4 text-right text-gray-400 font-medium">
+                <td className="px-8 py-4 text-gray-400 font-medium">
                    {new Date(r.date).toLocaleDateString()}
+                </td>
+                <td className="px-8 py-4 text-right opacity-0 group-hover:opacity-100 transition-all">
+                  <button 
+                    onClick={() => handleDelete(r.id)}
+                    className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                    title="Delete Receipt"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </td>
               </tr>
             ))}

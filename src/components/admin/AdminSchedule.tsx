@@ -2,10 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../../firebase';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { BookingSession } from '../../types';
-import { Calendar, Search, Clock, User, X, Filter, CheckCircle2 } from 'lucide-react';
+import { Calendar, Search, Clock, User, X, Filter, CheckCircle2, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { ScheduleService } from '../../services/ScheduleService';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function AdminScheduleManagement() {
+  const { user } = useAuth();
   const [sessions, setSessions] = useState<BookingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,6 +52,19 @@ export default function AdminScheduleManagement() {
     } catch (e) {
       console.error(e);
       alert('Failed to cancel session');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!user) return;
+    if (!confirm('PERMANENTLY DELETE this appointment record? This cannot be undone.')) return;
+    try {
+      await ScheduleService.deleteAppointment(id, user.uid);
+      setSessions(sessions.filter(s => s.id !== id));
+      alert('Appointment deleted successfully.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete appointment');
     }
   };
 
@@ -125,12 +141,19 @@ export default function AdminScheduleManagement() {
                         {s.status === 'CONFIRMED' && (
                           <button 
                             onClick={() => handleCancel(s.id, s.studentId, s.date, s.status)}
-                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            className="p-2 text-gray-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
                             title="Cancel Session"
                           >
                             <X className="h-4 w-4" />
                           </button>
                         )}
+                        <button 
+                          onClick={() => handleDelete(s.id)}
+                          className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          title="Delete Session Record"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                     </div>
                   </td>
                 </tr>

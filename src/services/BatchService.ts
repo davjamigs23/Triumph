@@ -37,5 +37,11 @@ export const BatchService = {
   async getAllBatches(): Promise<BatchGroup[]> {
     const snapshot = await getDocs(collection(db, 'batches'));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BatchGroup));
+  },
+
+  async deleteBatch(id: string, adminId: string) {
+    const { deleteDoc, doc: fireDoc } = await import('firebase/firestore');
+    await deleteDoc(fireDoc(db, 'batches', id));
+    await AuditService.log(adminId, 'DELETE', 'BATCHES', `Deleted batch ${id}`);
   }
 };

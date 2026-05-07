@@ -8,7 +8,8 @@ import {
   where, 
   getDocs, 
   orderBy,
-  onSnapshot
+  onSnapshot,
+  deleteDoc
 } from 'firebase/firestore';
 import { DocumentSubmission } from '../types';
 import { AuditService } from './AuditService';
@@ -68,5 +69,11 @@ export const DocumentService = {
 
     await updateDoc(docRef, updateData);
     await AuditService.log(adminId, status, 'DOCUMENTS', `Reviewed doc ${docId}: ${status}${reason ? ` - ${reason}` : ''}`);
+  },
+
+  async deleteSubmission(docId: string, adminId: string) {
+    const docRef = doc(db, 'documents', docId);
+    await deleteDoc(docRef);
+    await AuditService.log(adminId, 'DELETE', 'DOCUMENTS', `Permanently deleted document submission ${docId}`);
   }
 };

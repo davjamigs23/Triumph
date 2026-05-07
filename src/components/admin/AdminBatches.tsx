@@ -44,14 +44,14 @@ export default function AdminBatches() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!user) return;
     if (!confirm('Delete this batch? Students will remain but won\'t be in a batch.')) return;
     try {
-      const { deleteDoc, doc } = await import('firebase/firestore');
-      const { db } = await import('../../firebase');
-      await deleteDoc(doc(db, 'batches', id));
+      await BatchService.deleteBatch(id, user.uid);
       fetchBatches();
     } catch (e) {
       console.error(e);
+      alert('Failed to delete batch');
     }
   };
 

@@ -106,5 +106,11 @@ export const ScheduleService = {
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) return null;
     return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as BookingSession;
+  },
+
+  async deleteAppointment(id: string, adminId: string) {
+    const docRef = doc(db, 'appointments', id);
+    await deleteDoc(docRef);
+    await AuditService.log(adminId, 'DELETE', 'SCHEDULE', `Permanently deleted appointment ${id}`);
   }
 };

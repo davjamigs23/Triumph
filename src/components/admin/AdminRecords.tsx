@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { db } from '../../firebase';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { AppUser } from '../../types';
-import { Search, UserCheck, UserX, MoreHorizontal, User, Mail, Hash, BookOpen, Layers, X, Save } from 'lucide-react';
+import { Search, UserCheck, UserX, MoreHorizontal, User, Mail, Hash, BookOpen, Layers, X, Save, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { BatchService, BatchGroup } from '../../services/BatchService';
+import { UserService } from '../../services/UserService';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function AdminRecords() {
+  const { user } = useAuth();
   const [students, setStudents] = useState<AppUser[]>([]);
   const [batches, setBatches] = useState<BatchGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +59,19 @@ export default function AdminRecords() {
         console.error('Error updating student status:', error);
         alert('Failed to update student record.');
       }
+    }
+  };
+
+  const handleDelete = async (uid: string) => {
+    if (!user) return;
+    if (!confirm('PERMANENTLY DELETE this student record? This action is irreversible.')) return;
+    try {
+      await UserService.deleteUser(uid, user.uid);
+      setStudents(students.filter(s => s.uid !== uid));
+      alert('Student record deleted successfully.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete student record.');
     }
   };
 
@@ -164,6 +180,13 @@ export default function AdminRecords() {
                           title={s.isActive !== false ? "Deactivate Account" : "Reactivate Account"}
                         >
                           {s.isActive !== false ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(s.uid)} 
+                          className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors"
+                          title="Permanently Delete Student"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

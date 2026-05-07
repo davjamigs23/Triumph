@@ -9,7 +9,8 @@ import {
   XCircle, 
   Clock,
   X,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { DocumentService } from '../../services/DocumentService';
@@ -62,6 +63,19 @@ export default function DocumentVerification() {
       alert(`Error: ${err.message || 'Failed to review document'}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!user) return;
+    if (!confirm('PERMANENTLY DELETE this document submission? This cannot be undone.')) return;
+    try {
+      await DocumentService.deleteSubmission(id, user.uid);
+      setSubmissions(submissions.filter(s => s.id !== id));
+      alert('Document submission deleted.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete document');
     }
   };
 
@@ -134,6 +148,13 @@ export default function DocumentVerification() {
                       className="px-4 py-2 bg-[#1a237e] text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:shadow-lg transition-all"
                     >
                       Review
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(sub.id)}
+                      className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      title="Delete Submission"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </td>
