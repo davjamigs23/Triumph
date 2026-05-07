@@ -1,0 +1,176 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Student or Staff profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "fullName": { "type": "string" },
+        "studentId": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin", "photographer", "layout", "finance"] },
+        "course": { "type": "string" },
+        "section": { "type": "string" },
+        "batch": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "quote": { "type": "string" },
+        "achievements": { "type": "array", "items": { "type": "string" } },
+        "completionStatus": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "Required document submission",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "type": { "type": "string", "enum": ["CLEARANCE", "PAYMENT_PROOF", "BIRTH_CERTIFICATE", "OTHER"] },
+        "fileUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "rejectionReason": { "type": "string" },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "verifiedBy": { "type": "string" }
+      },
+      "required": ["studentId", "type", "fileUrl", "status"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Photo session booking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "timeSlot": { "type": "string" },
+        "status": { "type": "string", "enum": ["CONFIRMED", "CANCELLED", "COMPLETED"] },
+        "photographerId": { "type": "string" },
+        "location": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "date", "timeSlot", "status"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "System-wide announcement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string", "enum": ["urgent", "general", "schedule"] },
+        "postedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "category", "postedBy"]
+    }
+    "Batch": {
+      "title": "Batch",
+      "description": "Organizational group for students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "course": { "type": "string" },
+        "section": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "studentCount": { "type": "number" },
+        "layoutStatus": { "type": "string", "enum": ["not_started", "in_progress", "completed"] }
+      },
+      "required": ["name", "course", "section", "academicYear"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Record of system actions for accountability",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "role": { "type": "string" },
+        "action": { "type": "string" },
+        "module": { "type": "string" },
+        "details": { "type": "string" },
+        "status": { "type": "string", "enum": ["success", "failure"] }
+      },
+      "required": ["timestamp", "userId", "action", "module"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["reminder", "status_change", "announcement", "deadline"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "isRead"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Global application configuration",
+      "type": "object",
+      "properties": {
+        "deadlines": {
+          "type": "object",
+          "properties": {
+            "clearance": { "type": "string", "format": "date" },
+            "payment": { "type": "string", "format": "date" },
+            "photoSession": { "type": "string", "format": "date" }
+          }
+        },
+        "bookingPolicies": {
+          "type": "object",
+          "properties": {
+            "rescheduleLimit": { "type": "number" },
+            "cancellationWindowHours": { "type": "number" },
+            "operatingHours": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and metadata"
+    },
+    "/documents/{docId}": {
+      "schema": "Document",
+      "description": "Global collection for all student document submissions"
+    },
+    "/appointments/{apptId}": {
+      "schema": "Appointment",
+      "description": "Global collection for all photo bookings"
+    },
+    "/announcements/{annId}": {
+      "schema": "Announcement",
+      "description": "Global announcements"
+    },
+    "/batches/{batchId}": {
+      "schema": "Batch",
+      "description": "Academic batches"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "System audit logs"
+    },
+    "/notifications/{notifId}": {
+      "schema": "Notification",
+      "description": "User-specific notifications"
+    },
+    "/settings/config": {
+      "schema": "SystemSettings",
+      "description": "Singleton configuration document"
+    }
+  }
+}
