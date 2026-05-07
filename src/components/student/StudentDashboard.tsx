@@ -167,15 +167,21 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
           <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm min-h-[300px]">
              <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0d1b2a] mb-6">Notifications</h3>
              <div className="space-y-4">
-                {notifications.length > 0 ? notifications.slice(0, 2).map((notif) => (
-                  <div key={notif.id} className="text-xs font-medium text-gray-600 border-l-2 border-[#1a237e] pl-4 py-2 bg-gray-50/50 rounded-r-lg">
-                      <div className="flex justify-between items-center mb-1 uppercase tracking-widest">
-                        <span className="font-black text-[10px] text-[#1a237e]">{notif.title}</span>
-                        <span className="text-[9px] text-gray-400">{new Date(notif.createdAt).toLocaleString()}</span>
-                      </div>
-                      {notif.message}
-                  </div>
-                )) : <div className="text-xs text-gray-400">No new notifications.</div>}
+                {notifications.length > 0 ? notifications.slice(0, 2).map((notif) => {
+                    const isRecent = new Date().getTime() - new Date(notif.createdAt).getTime() < 86400000;
+                    return (
+                        <div key={notif.id} className={cn(
+                            "text-xs font-medium text-gray-600 border-l-2 border-[#1a237e] pl-4 py-2 rounded-r-lg",
+                            isRecent ? "bg-amber-50" : "bg-gray-50/50"
+                        )}>
+                            <div className="flex justify-between items-center mb-1 uppercase tracking-widest">
+                                <span className="font-black text-[10px] text-[#1a237e]">{notif.title} {isRecent && <span className="text-amber-600">(New)</span>}</span>
+                                <span className="text-[9px] text-gray-400">{new Date(notif.createdAt).toLocaleString()}</span>
+                            </div>
+                            {notif.message}
+                        </div>
+                    );
+                }) : <div className="text-xs text-gray-400">No new notifications.</div>}
              </div>
           </div>
           
