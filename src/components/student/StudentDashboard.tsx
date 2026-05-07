@@ -169,6 +169,10 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
              <div className="space-y-4">
                 {notifications.length > 0 ? notifications.slice(0, 2).map((notif) => (
                   <div key={notif.id} className="text-xs font-medium text-gray-600 border-l-2 border-[#1a237e] pl-4 py-2 bg-gray-50/50 rounded-r-lg">
+                      <div className="flex justify-between items-center mb-1 uppercase tracking-widest">
+                        <span className="font-black text-[10px] text-[#1a237e]">{notif.title}</span>
+                        <span className="text-[9px] text-gray-400">{new Date(notif.createdAt).toLocaleString()}</span>
+                      </div>
                       {notif.message}
                   </div>
                 )) : <div className="text-xs text-gray-400">No new notifications.</div>}

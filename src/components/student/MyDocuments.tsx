@@ -56,8 +56,14 @@ export default function MyDocuments() {
     setUploading(type);
     
     try {
-      // In this environment we simulate the URL but the logic for validation is real
-      await DocumentService.submitDocument(user.uid, type, file.name);
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      const fileUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+
+      await DocumentService.submitDocument(user.uid, type, file.name, fileUrl);
       await fetchData();
       alert('Document successfully submitted — Your requirement has been uploaded and is now pending staff review.');
     } catch (err) {
