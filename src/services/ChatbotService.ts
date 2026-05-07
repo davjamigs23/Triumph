@@ -22,16 +22,15 @@ export const ChatbotService = {
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: "user", parts: [{ text: message }] }],
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.7,
-        },
+      const genAI = new GoogleGenAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: SYSTEM_INSTRUCTION,
       });
-      return response.text || "I'm sorry, I couldn't process that request. Please try again or contact staff.";
+
+      const response = await model.generateContent(message);
+      const text = response.response.text();
+      return text || "I'm sorry, I couldn't process that request. Please try again or contact staff.";
     } catch (error) {
       console.error('Chatbot error:', error);
       return "I'm having trouble connecting right now. Please try again later.";

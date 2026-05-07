@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { ChatbotService } from '../../services/ChatbotService';
-import { Send, User, Bot, Loader2, MessageSquare } from 'lucide-react';
+import { Send, User, Bot, Loader2, MessageSquare, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -14,14 +14,29 @@ interface Message {
 
 export default function FAQChat() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: "Hello! I'm the Triumph Assistant. How can I help you with your yearbook requirements today?",
-      sender: 'bot',
-      timestamp: new Date()
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = localStorage.getItem('triumph_chat_history');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
+      } catch (e) {
+        console.error('Failed to parse chat history', e);
+      }
     }
-  ]);
+    return [
+      {
+        id: '1',
+        text: "Hello! I'm the Triumph Assistant. How can I help you with your yearbook requirements today?",
+        sender: 'bot',
+        timestamp: new Date()
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('triumph_chat_history', JSON.stringify(messages));
+  }, [messages]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -76,6 +91,18 @@ export default function FAQChat() {
             </div>
           </div>
         </div>
+        <button 
+          onClick={() => {
+            if (confirm('Clear chat history?')) {
+              localStorage.removeItem('triumph_chat_history');
+              window.location.reload();
+            }
+          }}
+          className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+          title="Clear Chat"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-8 space-y-6">
