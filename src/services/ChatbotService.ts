@@ -13,36 +13,42 @@ Rules:
 Be professional, encouraging, and helpful.
 `;
 
-const LOCAL_FAQ: { keywords: string[], answer: string }[] = [
+const LOCAL_FAQ: { keywords: string[], answer: string, hint?: string }[] = [
   {
     keywords: ['dress code', 'wear', 'outfit', 'clothes', 'attire'],
-    answer: "For your photo session, please wear formal attire. Men: White shirt with blazer. Women: White blouse with blazer. This ensures consistency for the yearbook layout."
+    answer: "For your photo session, please wear formal attire. Men: White shirt with blazer. Women: White blouse with blazer. This ensures consistency for the yearbook layout.",
+    hint: "Are you asking about the dress code? Please wear formal attire (white shirt/blouse with blazer) for your session."
   },
   {
     keywords: ['clearance', 'document', 'requirement', 'upload'],
-    answer: "You can upload your Clearance Form and Payment Receipt in the 'My Documents' section of your dashboard. Once uploaded, our staff will review them within 2-3 working days."
+    answer: "You can upload your Clearance Form and Payment Receipt in the 'My Documents' section of your dashboard. Once uploaded, our staff will review them within 2-3 working days.",
+    hint: "Do you need help with requirements? You can upload your Clearance and Receipt in 'My Documents'."
   },
   {
     keywords: ['payment', 'receipt', 'fee', 'how much', 'pay'],
-    answer: "Graduation package fees can be paid via authorized channels. Please upload your proof of payment (receipt) in 'My Documents' for verification. Check the 'Receipts' tab in Admin if you need a digital copy."
+    answer: "Graduation package fees can be paid via authorized channels. Please upload your proof of payment (receipt) in 'My Documents' for verification.",
+    hint: "Are you checking on payments? You can upload your receipt in the 'My Documents' tab."
   },
   {
-    keywords: ['schedule', 'booking', 'photo', 'appointment', 'slot'],
-    answer: "You can book or manage your photo session appointment in the 'My Schedule' tab on your dashboard. Please choose a slot that fits your batch's designated schedule."
+    keywords: ['schedule', 'booking', 'photo', 'appointment', 'slot', 'book'],
+    answer: "You can book or manage your photo session appointment in the 'My Schedule' tab on your dashboard. Please choose a slot that fits your batch's designated schedule.",
+    hint: "Do you mean book an appointment? You can manage your photo session in the 'My Schedule' tab."
   },
   {
     keywords: ['completion', 'status', 'progress', '100%'],
-    answer: "To reach 100% completion, you must: 1. Complete your profile details, 2. Book a photo session, 3. Upload your Clearance form, and 4. Upload your Payment Receipt. Your status will update once staff verifies your documents."
+    answer: "To reach 100% completion, you must: 1. Complete your profile details, 2. Book a photo session, 3. Upload your Clearance form, and 4. Upload your Payment Receipt.",
+    hint: "Want to check your progress? Ensure your profile, booking, and documents are all complete!"
   },
   {
     keywords: ['contact', 'help', 'staff', 'support'],
-    answer: "You can reach our help desk at support@triumphyearbook.com or visit our office during business hours (Monday-Friday, 8AM - 5PM)."
+    answer: "You can reach our help desk at support@triumphyearbook.com or visit our office during business hours (Monday-Friday, 8AM - 5PM).",
+    hint: "Need to contact us? Email support@triumphyearbook.com or visit our help desk."
   }
 ];
 
 export const ChatbotService = {
   async getResponse(message: string) {
-    const lowCaseMsg = message.toLowerCase();
+    const lowCaseMsg = message.toLowerCase().trim();
     
     // Check multiple possible sources for the API key
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
@@ -56,9 +62,11 @@ export const ChatbotService = {
     );
 
     if (!apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '') {
-      if (localMatch) return localMatch.answer;
+      if (localMatch) {
+        return lowCaseMsg.length < 8 ? localMatch.hint || localMatch.answer : localMatch.answer;
+      }
       console.error('Gemini API key is missing.');
-      return "I'm currently operating in a limited mode. You can still ask me about 'dress code', 'requirements', or 'scheduling'!";
+      return "I'm here to help! Did you mean to ask about the dress code, document requirements, or how to book a session?";
     }
 
     try {
@@ -82,14 +90,12 @@ export const ChatbotService = {
       
       const errorString = typeof error === 'string' ? error : JSON.stringify(error) + (error.message || '');
 
-      // On common errors, try local FAQ as fallback
-      if (errorString.includes('QUOTA_EXCEEDED') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('credits are depleted') || error.status === 429) {
-        if (localMatch) return localMatch.answer;
-        return "I'm receiving a high volume of inquiries right now. For immediate help, feel free to ask about 'dress code', 'requirements', or how to 'book a session'.";
+      // On common errors, try local FAQ as fallback without mentioning "quota" or "errors"
+      if (localMatch) {
+        return lowCaseMsg.length < 8 ? localMatch.hint || localMatch.answer : localMatch.answer;
       }
       
-      if (localMatch) return localMatch.answer;
-      return "I'm having trouble connecting right now. Please try again later.";
+      return "I'm focusing on graduation inquiries right now. Could you tell me if you're looking for help with the dress code, requirements, or booking?";
     }
   }
 };
