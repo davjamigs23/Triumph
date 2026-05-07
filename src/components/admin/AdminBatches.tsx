@@ -6,21 +6,26 @@ import { useAuth } from '../../hooks/useAuth';
 export default function AdminBatches() {
   const { user } = useAuth();
   const [batches, setBatches] = useState<BatchGroup[]>([]);
+  const [batchCounts, setBatchCounts] = useState<Record<string, number>>({});
   const [isAdding, setIsAdding] = useState(false);
   const [newBatch, setNewBatch] = useState({ name: '', course: '', section: '', yearLevel: '' });
   const [loading, setLoading] = useState(true);
 
-  const fetchBatches = async () => {
+  const fetchData = async () => {
     try {
-      const data = await BatchService.getAllBatches();
-      setBatches(data);
+      const [batchData, counts] = await Promise.all([
+        BatchService.getAllBatches(),
+        BatchService.getBatchStudentCounts()
+      ]);
+      setBatches(batchData);
+      setBatchCounts(counts);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchBatches();
+    fetchData();
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -36,7 +41,7 @@ export default function AdminBatches() {
       );
       setIsAdding(false);
       setNewBatch({ name: '', course: '', section: '', yearLevel: '' });
-      fetchBatches();
+      fetchData();
     } catch (err) {
       console.error(err);
       alert('Failed to create batch');
@@ -48,7 +53,7 @@ export default function AdminBatches() {
     if (!confirm('Delete this batch? Students will remain but won\'t be in a batch.')) return;
     try {
       await BatchService.deleteBatch(id, user.uid);
-      fetchBatches();
+      fetchData();
     } catch (e) {
       console.error(e);
       alert('Failed to delete batch');
@@ -91,7 +96,7 @@ export default function AdminBatches() {
              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
                 <div className="flex items-center gap-2">
                    <Users className="h-4 w-4 text-gray-300" />
-                   <span className="text-[12px] font-black text-[#0d1b2a]">{batch.studentCount || 0} Students</span>
+                   <span className="text-[12px] font-black text-[#0d1b2a]">{batchCounts[batch.name] || 0} Students</span>
                 </div>
              </div>
           </div>

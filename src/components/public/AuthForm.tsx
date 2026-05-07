@@ -41,6 +41,8 @@ export const AuthForm: React.FC = () => {
         errorMessage = 'Email/Password sign-in is disabled. Please enable it in the Firebase Console (Authentication > Sign-in method).';
       } else if (err.code === 'auth/email-already-in-use') {
         errorMessage = 'This email is already registered. Try logging in instead.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection or disable ad-blockers that might be blocking Firebase.';
       } else if (err.code === 'auth/weak-password') {
         errorMessage = 'Password should be at least 6 characters.';
       } else if (err.code === 'auth/invalid-email') {

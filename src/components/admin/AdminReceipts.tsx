@@ -131,7 +131,7 @@ export default function AdminReceipts() {
             ))}
             {receipts.length === 0 && !loading && (
               <tr>
-                <td colSpan={6} className="px-8 py-20 text-center text-gray-300 text-[11px] font-black uppercase tracking-widest">
+                <td colSpan={7} className="px-8 py-20 text-center text-gray-300 text-[11px] font-black uppercase tracking-widest">
                    No receipts found
                 </td>
               </tr>

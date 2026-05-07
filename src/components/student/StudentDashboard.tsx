@@ -24,14 +24,18 @@ import { DocumentSubmission, BookingSession, Announcement } from '../../types';
 interface RequirementItemProps {
   label: string;
   status: 'complete' | 'pending' | 'action';
+  onClick?: () => void;
 }
 
-const RequirementItem = ({ label, status }: RequirementItemProps) => {
+const RequirementItem = ({ label, status, onClick }: RequirementItemProps) => {
   const isComplete = status === 'complete';
   const isAction = status === 'action';
   
   return (
-    <div className="flex items-center justify-between py-5 px-8 border-b border-gray-50 last:border-0 hover:bg-gray-50/20 transition-all cursor-pointer group">
+    <div 
+      onClick={onClick}
+      className="flex items-center justify-between py-5 px-8 border-b border-gray-50 last:border-0 hover:bg-gray-50/20 transition-all cursor-pointer group"
+    >
       <div className="flex items-center gap-5">
         <div className={cn(
           "h-6 w-6 rounded-full flex items-center justify-center transition-all",
@@ -153,10 +157,26 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
                 <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0d1b2a]">Requirements Checklist</h3>
               </div>
               <div className="flex-1 divide-y divide-gray-50">
-                <RequirementItem label="Personal Details" status={user?.displayName ? 'complete' : 'action'} />
-                <RequirementItem label="Clearance Form" status={getDocStatus('CLEARANCE')} />
-                <RequirementItem label="Payment Receipt" status={getDocStatus('RECEIPT')} />
-                <RequirementItem label="Photo Session" status={booking ? 'complete' : 'action'} />
+                <RequirementItem 
+                  label="Personal Details" 
+                  status={user?.displayName ? 'complete' : 'action'} 
+                  onClick={() => setActiveTab('profile')}
+                />
+                <RequirementItem 
+                  label="Clearance Form" 
+                  status={getDocStatus('CLEARANCE')} 
+                  onClick={() => setActiveTab('documents')}
+                />
+                <RequirementItem 
+                  label="Payment Receipt" 
+                  status={getDocStatus('RECEIPT')} 
+                  onClick={() => setActiveTab('documents')}
+                />
+                <RequirementItem 
+                  label="Photo Session" 
+                  status={booking ? 'complete' : 'action'} 
+                  onClick={() => setActiveTab('schedule')}
+                />
               </div>
             </div>
         </div>

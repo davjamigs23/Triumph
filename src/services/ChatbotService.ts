@@ -18,11 +18,12 @@ export const ChatbotService = {
     // Check multiple possible sources for the API key
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
                    (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) ||
-                   (typeof window !== 'undefined' ? (window as any).VITE_GEMINI_API_KEY : undefined);
+                   (typeof window !== 'undefined' ? (window as any).VITE_GEMINI_API_KEY : undefined) ||
+                   (typeof window !== 'undefined' ? (window as any).process?.env?.GEMINI_API_KEY : undefined);
     
-    if (!apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY') {
-      console.error('Gemini API key is missing. Expected VITE_GEMINI_API_KEY to be set.');
-      return "The Triumph Assistant is currently unavailable because the API key is not configured. Please ensure VITE_GEMINI_API_KEY is set in your environment variables.";
+    if (!apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '') {
+      console.error('Gemini API key is missing.');
+      return "The Triumph Assistant is currently unavailable because the API key is not configured. If you are the administrator, please ensure GEMINI_API_KEY or VITE_GEMINI_API_KEY is set in the environment variables.";
     }
 
     try {
@@ -44,12 +45,14 @@ export const ChatbotService = {
     } catch (error: any) {
       console.error('Gemini Chatbot Error:', error);
       
+      const errorString = typeof error === 'string' ? error : JSON.stringify(error) + (error.message || '');
+
       // Provide more helpful error messages if possible
-      if (error.message?.includes('API_KEY_INVALID')) {
+      if (errorString.includes('API_KEY_INVALID')) {
         return "The provided Gemini API key is invalid. Please check your configuration.";
       }
-      if (error.message?.includes('QUOTA_EXCEEDED')) {
-        return "The chatbot is currently busy. Please try again in a few minutes.";
+      if (errorString.includes('QUOTA_EXCEEDED') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('credits are depleted') || error.status === 429) {
+        return "The chatbot quota has been reached (API credits depleted). Please contact the administrator.";
       }
       
       return "I'm having trouble connecting right now. Please try again later.";

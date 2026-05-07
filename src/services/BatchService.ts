@@ -39,6 +39,18 @@ export const BatchService = {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BatchGroup));
   },
 
+  async getBatchStudentCounts(): Promise<Record<string, number>> {
+    const studentsSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'STUDENT')));
+    const counts: Record<string, number> = {};
+    studentsSnap.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.batch) {
+        counts[data.batch] = (counts[data.batch] || 0) + 1;
+      }
+    });
+    return counts;
+  },
+
   async deleteBatch(id: string, adminId: string) {
     const { deleteDoc, doc: fireDoc } = await import('firebase/firestore');
     await deleteDoc(fireDoc(db, 'batches', id));
