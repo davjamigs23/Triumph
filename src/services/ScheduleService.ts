@@ -8,7 +8,8 @@ import {
   where, 
   getDocs, 
   orderBy,
-  deleteDoc
+  deleteDoc,
+  onSnapshot
 } from 'firebase/firestore';
 import { BookingSession } from '../types';
 import { AuditService } from './AuditService';
@@ -22,6 +23,21 @@ const AVAILABLE_SLOTS = [
 
 export const ScheduleService = {
   getAvailableTimeSlots: () => AVAILABLE_SLOTS,
+
+  subscribeToStudentBooking(studentId: string, callback: (booking: BookingSession | null) => void) {
+    const q = query(
+      collection(db, 'appointments'),
+      where('studentId', '==', studentId),
+      where('status', '==', 'CONFIRMED')
+    );
+    return onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        callback(null);
+      } else {
+        callback({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as BookingSession);
+      }
+    });
+  },
 
   async getBookedSlots(date: string) {
     const q = query(collection(db, 'appointments'), where('date', '==', date), where('status', '==', 'CONFIRMED'));

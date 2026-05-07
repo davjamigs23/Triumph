@@ -11,7 +11,8 @@ import {
   Upload, 
   Layers, 
   User as UserIcon,
-  Bell
+  Bell,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { DocumentService } from '../../services/DocumentService';
@@ -61,30 +62,22 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
   useEffect(() => {
     if (!user) return;
 
-    const fetchData = async () => {
-      try {
-        const [userDocs, userBooking, systemAnnouncements] = await Promise.all([
-          DocumentService.getStudentDocuments(user.uid),
-          ScheduleService.getStudentBooking(user.uid),
-          AnnouncementService.getAll()
-        ]);
-        setDocs(userDocs);
-        setBooking(userBooking);
-        setAnnouncements(systemAnnouncements.slice(0, 3));
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-      } finally {
+    // Subscriptions
+    const unsubDocs = DocumentService.subscribeToStudentDocuments(user.uid, (docs) => setDocs(docs));
+    const unsubBooking = ScheduleService.subscribeToStudentBooking(user.uid, (booking) => setBooking(booking));
+    const unsubNotifs = NotificationService.subscribeToNotifications(user.uid, (notifs) => setNotifications(notifs.slice(0, 3)));
+    
+    // One time load
+    AnnouncementService.getAll().then((anns) => {
+        setAnnouncements(anns.slice(0, 3));
         setLoading(false);
-      }
-    };
-
-    fetchData();
-
-    const unsubscribeNotifs = NotificationService.subscribeToNotifications(user.uid, (notifs) => {
-      setNotifications(notifs.slice(0, 3));
     });
 
-    return () => unsubscribeNotifs();
+    return () => {
+        unsubDocs();
+        unsubBooking();
+        unsubNotifs();
+    };
   }, [user]);
 
   const getDocStatus = (type: DocumentSubmission['type']) => {
@@ -122,86 +115,93 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
         </div>
       </div>
 
-      {/* Welcome & Progress */}
-      <div className="bg-white border border-gray-100 rounded-3xl p-10 shadow-sm relative overflow-hidden group">
-        <div className="absolute top-0 right-0 h-full w-2 bg-[#fbbd08]/10 group-hover:w-4 transition-all" />
-        <div className="flex flex-col gap-8">
-          <div className="flex flex-col gap-4">
-          <div className="text-xl font-bold text-[#0d1b2a]">
-            Welcome back, <span className="font-black text-[#1a237e] uppercase tracking-tight">{user?.displayName || 'Student'}!</span>
-          </div>
-          
-          <div className="flex items-center gap-4 text-xs font-black uppercase tracking-widest text-[#0d1b2a]">
-            <span>Profile Progress: {progress}%</span>
-            <div className="h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-[#fbbd08]" style={{ width: `${progress}%` }} />
-            </div>
-          </div>
+      {user && !user.studentId && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-center gap-3">
+          <AlertCircle className="h-5 w-5" />
+          <p className="text-sm font-bold">
+            Please update your <span className="underline cursor-pointer" onClick={() => setActiveTab('profile')}>Student ID</span> in your profile to be recognized when submitting documents.
+          </p>
         </div>
-        </div>
-      </div>
+      )}
 
         {/* Main Grid */}
       <div className="grid md:grid-cols-2 gap-8">
-        {/* Checklist */}
-        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-          <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/20">
-            <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0d1b2a]">Requirements Checklist</h3>
-          </div>
-          <div className="flex-1 divide-y divide-gray-50">
-            <RequirementItem label="Personal Details" status={user?.displayName ? 'complete' : 'action'} />
-            <RequirementItem label="Clearance Form" status={getDocStatus('CLEARANCE')} />
-            <RequirementItem label="Payment Receipt" status={getDocStatus('RECEIPT')} />
-            <RequirementItem label="Photo Session" status={booking ? 'complete' : 'action'} />
-          </div>
+        {/* Left Column */}
+        <div className="space-y-8">
+            {/* Welcome & Progress */}
+            <div className="bg-white border border-gray-100 rounded-3xl p-10 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 h-full w-2 bg-[#fbbd08]/10 group-hover:w-4 transition-all" />
+              <div className="flex flex-col gap-8">
+                <div className="flex flex-col gap-4">
+                <div className="text-xl font-bold text-[#0d1b2a]">
+                  Welcome back, <span className="font-black text-[#1a237e] uppercase tracking-tight">{user?.displayName || 'Student'}!</span>
+                </div>
+                
+                <div className="flex items-center gap-4 text-xs font-black uppercase tracking-widest text-[#0d1b2a]">
+                  <span>Profile Progress: {progress}%</span>
+                  <div className="h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#fbbd08]" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+
+            {/* Checklist */}
+            <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/20">
+                <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0d1b2a]">Requirements Checklist</h3>
+              </div>
+              <div className="flex-1 divide-y divide-gray-50">
+                <RequirementItem label="Personal Details" status={user?.displayName ? 'complete' : 'action'} />
+                <RequirementItem label="Clearance Form" status={getDocStatus('CLEARANCE')} />
+                <RequirementItem label="Payment Receipt" status={getDocStatus('RECEIPT')} />
+                <RequirementItem label="Photo Session" status={booking ? 'complete' : 'action'} />
+              </div>
+            </div>
         </div>
 
         {/* Right Column */}
-        <div className="space-y-6">
+        <div className="space-y-8">
+          {/* Notifications */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm min-h-[300px]">
+             <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0d1b2a] mb-6">Notifications</h3>
+             <div className="space-y-4">
+                {notifications.length > 0 ? notifications.slice(0, 2).map((notif) => (
+                  <div key={notif.id} className="text-xs font-medium text-gray-600 border-l-2 border-[#1a237e] pl-4 py-2 bg-gray-50/50 rounded-r-lg">
+                      {notif.message}
+                  </div>
+                )) : <div className="text-xs text-gray-400">No new notifications.</div>}
+             </div>
+          </div>
+          
           {/* Booking Card */}
           <div className={cn(
-            "rounded-2xl p-6 shadow-sm transition-all cursor-pointer h-[180px] flex flex-col justify-between",
+            "rounded-2xl p-8 shadow-sm transition-all cursor-pointer h-auto flex flex-col justify-between",
             booking ? "bg-[#85b27a] text-white" : "bg-[#1a237e] text-white"
           )} onClick={() => setActiveTab('schedule')}>
-            <div className="flex justify-between items-start">
-               <div className="text-[10px] font-black uppercase tracking-widest opacity-70">PHOTO SESSION</div>
-               <div className={cn("text-[9px] font-black uppercase px-3 py-1 rounded-full", booking ? "bg-white/20" : "bg-[#fbbd08] text-[#0d1b2a]")}>
+            <div className="flex justify-between items-start mb-6">
+               <div className="text-[11px] font-black uppercase tracking-widest opacity-70">PHOTO SESSION</div>
+               <div className={cn("text-[9px] font-black uppercase px-4 py-1.5 rounded-full", booking ? "bg-white/20" : "bg-[#fbbd08] text-[#0d1b2a]")}>
                   {booking ? 'Booked' : 'Pending'}
                </div>
             </div>
             
             {booking ? (
-              <div>
+              <div className="mb-6">
                 <h3 className="text-xl font-black">{booking.date}</h3>
                 <p className="text-sm font-bold opacity-80 uppercase tracking-widest">{booking.timeSlot}</p>
               </div>
             ) : (
-                <p className="text-sm font-bold opacity-80">No session booked yet.</p>
+                <p className="text-sm font-bold opacity-80 mb-6">No session booked yet.</p>
             )}
             
-            <button className="w-full text-[10px] font-black uppercase tracking-widest bg-white/20 hover:bg-white/30 py-2 rounded-lg">
+            <button className="w-full text-[11px] font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 py-3.5 rounded-xl transition-all">
               {booking ? 'Reschedule' : 'Book Session'}
             </button>
           </div>
-
-          {/* Notifications */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0d1b2a] mb-4">Notifications</h3>
-            <div className="space-y-4">
-               {notifications.length > 0 ? notifications.slice(0, 2).map((notif) => (
-                 <div key={notif.id} className="text-xs font-medium text-gray-600 border-l-2 border-gray-200 pl-3">
-                    {notif.message}
-                 </div>
-               )) : <div className="text-xs text-gray-400">No new notifications.</div>}
-            </div>
-          </div>
         </div>
       </div>
-
-      {/* System Announcements */}
-      {/* Announcements Removed per User Request */}
-
-      {/* Yearbook Layout Preview */}
 
       {/* Yearbook Layout Preview */}
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
@@ -254,7 +254,6 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
            </div>
         </div>
       </div>
-
     </div>
   );
 }

@@ -29,6 +29,18 @@ export const DocumentService = {
     return docRef.id;
   },
 
+  subscribeToStudentDocuments(studentId: string, callback: (docs: DocumentSubmission[]) => void) {
+    const q = query(
+      collection(db, 'documents'), 
+      where('studentId', '==', studentId),
+      orderBy('submittedAt', 'desc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentSubmission));
+      callback(docs);
+    });
+  },
+
   async getStudentDocuments(studentId: string) {
     const q = query(
       collection(db, 'documents'), 

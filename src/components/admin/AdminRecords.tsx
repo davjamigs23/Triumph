@@ -19,19 +19,23 @@ export default function AdminRecords() {
     isActive: true
   });
 
-  const fetchStudents = async () => {
+  const fetchStudents = () => {
     setLoading(true);
     const q = query(collection(db, 'users'), where('role', '==', 'STUDENT'));
-    const snap = await getDocs(q);
-    setStudents(snap.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser)));
     
-    const bData = await BatchService.getAllBatches();
-    setBatches(bData);
-    setLoading(false);
+    return onSnapshot(q, async (snap) => {
+      const studentsData = snap.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
+      setStudents(studentsData);
+      
+      const bData = await BatchService.getAllBatches();
+      setBatches(bData);
+      setLoading(false);
+    });
   };
 
   useEffect(() => {
-    fetchStudents();
+    const unsub = fetchStudents();
+    return () => unsub();
   }, []);
 
   const filteredStudents = useMemo(() => {
@@ -48,7 +52,6 @@ export default function AdminRecords() {
       try {
         await updateDoc(doc(db, 'users', uid), { isActive: !currentStatus });
         alert(`Student account ${currentStatus ? 'deactivated' : 'reactivated'}.`);
-        fetchStudents();
       } catch (error) {
         console.error('Error updating student status:', error);
         alert('Failed to update student record.');
@@ -61,8 +64,8 @@ export default function AdminRecords() {
     setEditFormData({
       displayName: student.displayName || '',
       studentId: student.studentId || '',
-      batch: (student as any).batch || '',
-      isActive: (student as any).isActive !== false
+      batch: student.batch || '',
+      isActive: student.isActive !== false
     });
   };
 
@@ -135,13 +138,13 @@ export default function AdminRecords() {
                     <td className="px-8 py-4">
                         <span className={cn(
                           "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest",
-                          (s as any).isActive !== false ? "bg-[#85b27a]/20 text-[#85b27a]" : "bg-red-50 text-red-500"
+                          s.isActive !== false ? "bg-[#85b27a]/20 text-[#85b27a]" : "bg-red-50 text-red-500"
                         )}>
-                          {(s as any).isActive !== false ? 'Active' : 'Inactive'}
+                          {s.isActive !== false ? 'Active' : 'Inactive'}
                         </span>
                     </td>
                     <td className="px-8 py-4 text-[10px] text-gray-400 uppercase tracking-widest font-black">
-                        {(s as any).batch || 'Unassigned'}
+                        {s.batch || 'Unassigned'}
                     </td>
                     <td className="px-8 py-4 text-right">
                       <div className="flex justify-end gap-2">
@@ -153,14 +156,14 @@ export default function AdminRecords() {
                             <MoreHorizontal className="h-4 w-4" />
                         </button>
                         <button 
-                          onClick={() => handleDeactivate(s.uid, (s as any).isActive !== false)} 
+                          onClick={() => handleDeactivate(s.uid, s.isActive !== false)} 
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            (s as any).isActive !== false ? "hover:bg-red-50 text-red-400" : "hover:bg-green-50 text-green-500"
+                            s.isActive !== false ? "hover:bg-red-50 text-red-400" : "hover:bg-green-50 text-green-500"
                           )} 
-                          title={(s as any).isActive !== false ? "Deactivate Account" : "Reactivate Account"}
+                          title={s.isActive !== false ? "Deactivate Account" : "Reactivate Account"}
                         >
-                          {(s as any).isActive !== false ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                          {s.isActive !== false ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                         </button>
                       </div>
                     </td>

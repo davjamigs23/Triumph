@@ -9,6 +9,8 @@ export interface AppUser {
   studentId?: string;
   quote?: string;
   createdAt: string;
+  isActive?: boolean;
+  batch?: string;
 }
 
 export interface StudentRecord {

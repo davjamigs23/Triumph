@@ -22,6 +22,7 @@ export default function DocumentVerification() {
   const [submissions, setSubmissions] = useState<DocumentSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<DocumentSubmission | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -44,6 +45,7 @@ export default function DocumentVerification() {
     if (!reviewing || !user) return;
     if (status === 'REJECTED' && !rejectionReason) return alert('Please provide a reason for rejection.');
 
+    setIsSubmitting(true);
     try {
       await DocumentService.reviewDocument(reviewing.id, status, user.uid, rejectionReason);
       await NotificationService.sendNotification(
@@ -58,6 +60,8 @@ export default function DocumentVerification() {
     } catch (err: any) {
       console.error(err);
       alert(`Error: ${err.message || 'Failed to review document'}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -172,10 +176,16 @@ export default function DocumentVerification() {
                </div>
 
                <div className="p-8 space-y-8">
-                  <div className="aspect-video bg-gray-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-200">
-                    <a href={reviewing.fileUrl} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-2 group">
-                       <Eye className="h-12 w-12 text-gray-300 group-hover:text-[#1a237e] transition-colors" />
-                       <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 group-hover:text-[#1a237e]">View Full Document</span>
+                  <div className="aspect-video bg-gray-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-200 overflow-hidden">
+                    <a href={reviewing.fileUrl} target="_blank" rel="noreferrer" className="w-full h-full flex flex-col items-center justify-center gap-2 group relative">
+                       {reviewing.fileUrl.match(/\.(jpeg|jpg|png|gif|webp)$/i) ? (
+                         <img src={reviewing.fileUrl} alt={reviewing.fileName} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                       ) : (
+                         <>
+                            <Eye className="h-12 w-12 text-gray-300 group-hover:text-[#1a237e] transition-colors" />
+                            <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 group-hover:text-[#1a237e]">View Full Document</span>
+                         </>
+                       )}
                     </a>
                   </div>
 
@@ -191,16 +201,18 @@ export default function DocumentVerification() {
 
                   <div className="flex gap-4">
                      <button 
+                        disabled={isSubmitting}
                         onClick={() => handleReview('REJECTED')}
-                        className="flex-1 py-4 bg-[#ff5a5a] text-white text-[12px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#ff5a5a]/20 hover:scale-[1.02] transition-all"
+                        className="flex-1 py-4 bg-[#ff5a5a] text-white text-[12px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#ff5a5a]/20 hover:scale-[1.02] transition-all disabled:opacity-50"
                      >
-                       <XCircle className="inline-block mr-2 h-4 w-4" /> Reject Submission
+                       <XCircle className="inline-block mr-2 h-4 w-4" /> {isSubmitting ? 'Rejecting...' : 'Reject Submission'}
                      </button>
                      <button 
+                        disabled={isSubmitting}
                         onClick={() => handleReview('APPROVED')}
-                        className="flex-1 py-4 bg-[#85b27a] text-white text-[12px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#85b27a]/20 hover:scale-[1.02] transition-all"
+                        className="flex-1 py-4 bg-[#85b27a] text-white text-[12px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#85b27a]/20 hover:scale-[1.02] transition-all disabled:opacity-50"
                      >
-                       <CheckCircle className="inline-block mr-2 h-4 w-4" /> Approve & Verify
+                       <CheckCircle className="inline-block mr-2 h-4 w-4" /> {isSubmitting ? 'Approving...' : 'Approve & Verify'}
                      </button>
                   </div>
                </div>
