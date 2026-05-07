@@ -10,14 +10,12 @@ export default function AdminCompliance() {
   const [remindingAll, setRemindingAll] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      ComplianceService.getStats(),
-      ComplianceService.getNonCompliantStudents()
-    ]).then(([s, nc]) => {
-      setStats(s);
-      setNonCompliant(nc);
-      setLoading(false);
+    const unsub = ComplianceService.subscribeToComplianceData((s, nc) => {
+        setStats(s);
+        setNonCompliant(nc);
+        setLoading(false);
     });
+    return () => unsub();
   }, []);
 
    const handleRemind = async (userId: string, missing: string) => {

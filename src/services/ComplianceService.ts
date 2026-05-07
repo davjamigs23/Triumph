@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { collection, query, getDocs, where } from 'firebase/firestore';
+import { collection, query, getDocs, where, onSnapshot } from 'firebase/firestore';
 
 export interface ComplianceStats {
   totalStudents: number;
@@ -10,10 +10,12 @@ export interface ComplianceStats {
 
 export const ComplianceService = {
   async getStats(): Promise<ComplianceStats> {
-    const students = await getDocs(collection(db, 'users'));
-    const allDocs = await getDocs(collection(db, 'documents'));
+    const [students, allDocs, appointments] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'documents')),
+        getDocs(query(collection(db, 'appointments'), where('status', '==', 'CONFIRMED')))
+    ]);
     const pendingDocs = allDocs.docs.filter(d => d.data().status === 'PENDING');
-    const appointments = await getDocs(query(collection(db, 'appointments'), where('status', '==', 'CONFIRMED')));
 
     const total = students.size || 1;
     const bookedIds = new Set(appointments.docs.map(d => d.data().studentId));
@@ -50,9 +52,11 @@ export const ComplianceService = {
   },
 
   async getNonCompliantStudents() {
-    const studentsRes = await getDocs(collection(db, 'users'));
-    const docsRes = await getDocs(collection(db, 'documents'));
-    const appointmentsRes = await getDocs(query(collection(db, 'appointments'), where('status', '==', 'CONFIRMED')));
+    const [studentsRes, docsRes, appointmentsRes] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'documents')),
+        getDocs(query(collection(db, 'appointments'), where('status', '==', 'CONFIRMED')))
+    ]);
 
     const bookedIds = new Set(appointmentsRes.docs.map(d => d.data().studentId));
     const studentDocs = docsRes.docs.reduce((acc: any, d) => {
@@ -82,5 +86,28 @@ export const ComplianceService = {
       })
       .filter(s => s.missingCount > 0)
       .sort((a, b) => b.missingCount - a.missingCount);
+  },
+
+  subscribeToComplianceData(callback: (stats: ComplianceStats, nonCompliant: any[]) => void) {
+    const unsubStudents = onSnapshot(collection(db, 'users'), () => this.triggerUpdate(callback));
+    const unsubDocs = onSnapshot(collection(db, 'documents'), () => this.triggerUpdate(callback));
+    const unsubAppointments = onSnapshot(collection(db, 'appointments'), () => this.triggerUpdate(callback));
+    
+    // Initial trigger
+    this.triggerUpdate(callback);
+    
+    return () => {
+      unsubStudents();
+      unsubDocs();
+      unsubAppointments();
+    };
+  },
+
+  async triggerUpdate(callback: (stats: ComplianceStats, nonCompliant: any[]) => void) {
+    const [stats, nonCompliant] = await Promise.all([
+      this.getStats(),
+      this.getNonCompliantStudents()
+    ]);
+    callback(stats, nonCompliant);
   }
 };

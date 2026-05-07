@@ -100,7 +100,7 @@ export default function SmartScheduling() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">Smart Scheduling</h2>
+          <h2 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">Scheduling</h2>
           <p className="text-sm text-gray-500 font-medium">Manage your professional yearbook photo session bookings.</p>
         </div>
         {!currentBooking && (
