@@ -49,13 +49,19 @@ export default function FAQChat() {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || loading) return;
+  const handleSend = async (payload?: React.FormEvent | string) => {
+    if (payload && typeof payload !== 'string' && 'preventDefault' in payload) {
+      payload.preventDefault();
+    }
+    
+    if (loading) return;
+
+    const query = typeof payload === 'string' ? payload : input;
+    if (!query.trim()) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
-      text: input,
+      text: query,
       sender: 'user',
       timestamp: new Date()
     };
@@ -65,7 +71,7 @@ export default function FAQChat() {
     setLoading(true);
 
     try {
-      const response = await ChatbotService.getResponse(input);
+      const response = await ChatbotService.getResponse(query);
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         text: response,
@@ -120,6 +126,24 @@ export default function FAQChat() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        {messages.length <= 1 && (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {[
+              { label: '👗 Dress Code', msg: 'What is the dress code for photo sessions?' },
+              { label: '📋 Requirements', msg: 'What are the document requirements?' },
+              { label: '📅 Scheduling', msg: 'How do I book a photo session?' },
+              { label: '💳 Payments', msg: 'How to pay and upload receipt?' }
+            ].map(chip => (
+              <button
+                key={chip.label}
+                onClick={() => handleSend(chip.msg)}
+                className="px-4 py-3 bg-[#fbbd08]/5 border border-[#fbbd08]/10 rounded-xl text-[11px] font-bold text-[#0d1b2a] text-left hover:bg-[#fbbd08]/20 transition-all active:scale-95"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
         {messages.map((msg) => (
           <motion.div
             initial={{ opacity: 0, y: 10 }}

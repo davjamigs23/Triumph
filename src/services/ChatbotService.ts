@@ -13,17 +13,52 @@ Rules:
 Be professional, encouraging, and helpful.
 `;
 
+const LOCAL_FAQ: { keywords: string[], answer: string }[] = [
+  {
+    keywords: ['dress code', 'wear', 'outfit', 'clothes', 'attire'],
+    answer: "For your photo session, please wear formal attire. Men: White shirt with blazer. Women: White blouse with blazer. This ensures consistency for the yearbook layout."
+  },
+  {
+    keywords: ['clearance', 'document', 'requirement', 'upload'],
+    answer: "You can upload your Clearance Form and Payment Receipt in the 'My Documents' section of your dashboard. Once uploaded, our staff will review them within 2-3 working days."
+  },
+  {
+    keywords: ['payment', 'receipt', 'fee', 'how much', 'pay'],
+    answer: "Graduation package fees can be paid via authorized channels. Please upload your proof of payment (receipt) in 'My Documents' for verification. Check the 'Receipts' tab in Admin if you need a digital copy."
+  },
+  {
+    keywords: ['schedule', 'booking', 'photo', 'appointment', 'slot'],
+    answer: "You can book or manage your photo session appointment in the 'My Schedule' tab on your dashboard. Please choose a slot that fits your batch's designated schedule."
+  },
+  {
+    keywords: ['completion', 'status', 'progress', '100%'],
+    answer: "To reach 100% completion, you must: 1. Complete your profile details, 2. Book a photo session, 3. Upload your Clearance form, and 4. Upload your Payment Receipt. Your status will update once staff verifies your documents."
+  },
+  {
+    keywords: ['contact', 'help', 'staff', 'support'],
+    answer: "You can reach our help desk at support@triumphyearbook.com or visit our office during business hours (Monday-Friday, 8AM - 5PM)."
+  }
+];
+
 export const ChatbotService = {
   async getResponse(message: string) {
+    const lowCaseMsg = message.toLowerCase();
+    
     // Check multiple possible sources for the API key
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
                    (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) ||
                    (typeof window !== 'undefined' ? (window as any).VITE_GEMINI_API_KEY : undefined) ||
                    (typeof window !== 'undefined' ? (window as any).process?.env?.GEMINI_API_KEY : undefined);
     
+    // Quick search in local FAQ first before checking API key
+    const localMatch = LOCAL_FAQ.find(faq => 
+      faq.keywords.some(keyword => lowCaseMsg.includes(keyword))
+    );
+
     if (!apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '') {
+      if (localMatch) return localMatch.answer;
       console.error('Gemini API key is missing.');
-      return "The Triumph Assistant is currently unavailable because the API key is not configured. If you are the administrator, please ensure GEMINI_API_KEY or VITE_GEMINI_API_KEY is set in the environment variables.";
+      return "The Triumph Assistant is currently unavailable because the API key is not configured. (Tip: Try asking about 'dress code' or 'requirements' for local info)";
     }
 
     try {
@@ -47,14 +82,13 @@ export const ChatbotService = {
       
       const errorString = typeof error === 'string' ? error : JSON.stringify(error) + (error.message || '');
 
-      // Provide more helpful error messages if possible
-      if (errorString.includes('API_KEY_INVALID')) {
-        return "The provided Gemini API key is invalid. Please check your configuration.";
-      }
+      // On quota error, try local FAQ as fallback
       if (errorString.includes('QUOTA_EXCEEDED') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('credits are depleted') || error.status === 429) {
-        return "The chatbot quota has been reached (API credits depleted). Please contact the administrator.";
+        if (localMatch) return localMatch.answer;
+        return "The chatbot quota has been reached. However, you can ask me about 'requirements', 'dress code', or 'scheduling' for basic information.";
       }
       
+      if (localMatch) return localMatch.answer;
       return "I'm having trouble connecting right now. Please try again later.";
     }
   }
