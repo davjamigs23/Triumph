@@ -15,8 +15,14 @@ Be professional, encouraging, and helpful.
 
 export const ChatbotService = {
   async getResponse(message: string) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
+    if (!apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY') {
+      console.error('Gemini API key is missing. Ensure it is set in environment variables.');
+      return "The Triumph Assistant is currently unavailable because the API key is not configured. Please contact the administrator.";
+    }
+
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [{ role: "user", parts: [{ text: message }] }],
