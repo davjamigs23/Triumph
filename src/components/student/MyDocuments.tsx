@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { DocumentService } from '../../services/DocumentService';
 import { DocumentSubmission } from '../../types';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebase';
 import { 
   Upload, 
   FileCheck, 
@@ -20,20 +22,13 @@ export default function MyDocuments() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
 
-  const fetchData = async () => {
-    if (!user) return;
-    try {
-      const userDocs = await DocumentService.getStudentDocuments(user.uid);
-      setDocs(userDocs);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchData();
+    if (!user) return;
+    const unsubscribe = DocumentService.subscribeToStudentDocuments(user.uid, (userDocs) => {
+      setDocs(userDocs);
+      setLoading(false);
+    });
+    return () => unsubscribe();
   }, [user]);
 
   const handleUpload = async (type: DocumentSubmission['type'], e: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,15 +51,14 @@ export default function MyDocuments() {
     setUploading(type);
     
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      const fileUrl = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-      });
+      // 1. Upload to Storage instead of Base64
+      const storagePath = `documents/${user.uid}/${type}_${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, file);
+      const fileUrl = await getDownloadURL(storageRef);
 
+      // 2. Submit record with public URL
       await DocumentService.submitDocument(user.uid, type, file.name, fileUrl);
-      await fetchData();
       alert('Document successfully submitted — Your requirement has been uploaded and is now pending staff review.');
     } catch (err) {
       console.error(err);

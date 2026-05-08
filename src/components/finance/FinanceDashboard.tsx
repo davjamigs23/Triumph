@@ -18,6 +18,7 @@ import { db } from '../../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import DocumentVerification from '../admin/DocumentVerification';
 import AdminAuditLogs from '../admin/AdminAuditLogs';
+import AdminReceipts from '../admin/AdminReceipts';
 
 const StatCard = ({ title, value, icon, color }: any) => (
   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
@@ -43,25 +44,48 @@ export default function FinanceDashboard() {
   const [stats, setStats] = useState({
     pendingReceipts: 0,
     verifiedToday: 0,
-    totalVerified: 0
+    totalVerified: 0,
+    manualReceiptsCount: 0,
+    totalStudentReceipts: 0
   });
 
   useEffect(() => {
-    // Real-time stats sync
-    const q = query(collection(db, 'documents'), where('type', '==', 'RECEIPT'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => d.data());
-      const pending = docs.filter(d => d.status === 'PENDING' && d.financeStatus !== 'VERIFIED').length;
-      const verified = docs.filter(d => d.financeStatus === 'VERIFIED').length;
-      
+    // Combine listeners into a more predictable state update pattern
+    let studentDocs: any[] = [];
+    let manualDocs: any[] = [];
+
+    const updateCombinedStats = () => {
+      const pendingStudent = studentDocs.filter(d => d.status === 'PENDING' && d.financeStatus !== 'VERIFIED').length;
+      const verifiedStudent = studentDocs.filter(d => d.financeStatus === 'VERIFIED').length;
+      const verifiedManual = manualDocs.length;
+
       setStats({
-        pendingReceipts: pending,
-        verifiedToday: docs.filter(d => d.financeVerifiedAt?.startsWith(new Date().toISOString().split('T')[0])).length,
-        totalVerified: verified
+        pendingReceipts: pendingStudent,
+        verifiedToday: 0, // Could be calculated if needed
+        totalVerified: verifiedStudent + verifiedManual,
+        manualReceiptsCount: verifiedManual,
+        totalStudentReceipts: studentDocs.length
       });
+    };
+
+    // 1. Listen to Student Uploads
+    const qDocs = query(collection(db, 'documents'), where('type', '==', 'RECEIPT'));
+    const unsubscribeDocs = onSnapshot(qDocs, (snapshot) => {
+      studentDocs = snapshot.docs.map(d => d.data());
+      updateCombinedStats();
     });
 
-    return () => unsubscribe();
+    // 2. Listen to Manual Admin Receipts
+    const qManual = query(collection(db, 'receipts'));
+    const unsubscribeManual = onSnapshot(qManual, (snapshot) => {
+      manualDocs = snapshot.docs.map(d => d.data());
+      updateCombinedStats();
+    });
+
+    return () => {
+      unsubscribeDocs();
+      unsubscribeManual();
+    };
   }, []);
 
   const menuItems = [
@@ -69,6 +93,8 @@ export default function FinanceDashboard() {
     { id: 'receipts', label: 'Verify Receipts', icon: CreditCard },
     { id: 'audit', label: 'Audit Logs', icon: History },
   ];
+
+  const [receiptMode, setReceiptMode] = useState<'STUDENT' | 'MANUAL'>('STUDENT');
 
   return (
     <div className="flex h-screen bg-[#f8f9fa] overflow-hidden font-sans">
@@ -208,7 +234,32 @@ export default function FinanceDashboard() {
 
           {activeTab === 'receipts' && (
             <div className="space-y-6">
-              <DocumentVerification filterType="RECEIPT" />
+              <div className="flex bg-white p-1 rounded-xl border border-gray-100 w-fit mb-4">
+                <button 
+                  onClick={() => setReceiptMode('STUDENT')}
+                  className={cn(
+                    "px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                    receiptMode === 'STUDENT' ? "bg-[#1a237e] text-white shadow-lg" : "text-gray-400 hover:text-[#0d1b2a]"
+                  )}
+                >
+                  Student Uploads
+                </button>
+                <button 
+                  onClick={() => setReceiptMode('MANUAL')}
+                  className={cn(
+                    "px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                    receiptMode === 'MANUAL' ? "bg-[#1a237e] text-white shadow-lg" : "text-gray-400 hover:text-[#0d1b2a]"
+                  )}
+                >
+                  Admin Manual Records
+                </button>
+              </div>
+              
+              {receiptMode === 'STUDENT' ? (
+                <DocumentVerification filterType="RECEIPT" />
+              ) : (
+                <AdminReceipts />
+              )}
             </div>
           )}
           

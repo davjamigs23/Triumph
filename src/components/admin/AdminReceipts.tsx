@@ -16,31 +16,25 @@ export default function AdminReceipts() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  const fetchReceipts = async () => {
-    try {
-      const data = await ReceiptService.getAllReceipts();
+  useEffect(() => {
+    const unsubscribe = ReceiptService.subscribeToReceipts((data) => {
       setReceipts(data);
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (!user) return;
     if (!confirm('Permanently delete this receipt record?')) return;
     try {
       await ReceiptService.deleteReceipt(id, user.uid);
-      setReceipts(receipts.filter(r => r.id !== id));
       alert('Receipt deleted.');
     } catch (e) {
       console.error(e);
       alert('Failed to delete receipt');
     }
   };
-
-  useEffect(() => {
-    fetchReceipts();
-  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,16 +51,20 @@ export default function AdminReceipts() {
 
       const receiptData = {
         ...newReceipt,
-        status: 'PAID',
+        status: 'PAID' as const,
         date: new Date().toISOString(),
         imageUrl
       };
-      await addDoc(collection(db, 'receipts'), receiptData);
-      await AuditService.log(user.uid, 'CREATE', 'RECEIPTS', `Generated receipt for ${newReceipt.studentId}`);
+      
+      const docRef = await addDoc(collection(db, 'receipts'), receiptData);
+      
+      // Fire and forget audit log to speed up UI response
+      AuditService.log(user.uid, 'CREATE', 'RECEIPTS', `Generated receipt for ${newReceipt.studentId} (Ref: ${newReceipt.referenceNo})`).catch(console.error);
+      
+      // Cleanup UI state immediately after doc creation
       setIsAdding(false);
       setNewReceipt({ studentId: '', purpose: 'YEARBOOK_FEE', referenceNo: '' });
       setFile(null);
-      fetchReceipts();
     } catch (e) {
       console.error(e);
       alert('Failed to generate receipt');
@@ -74,6 +72,8 @@ export default function AdminReceipts() {
       setUploading(false);
     }
   };
+
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   return (
     <div className="space-y-6">

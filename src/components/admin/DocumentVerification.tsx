@@ -63,12 +63,14 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
       const notificationTitle = status === 'REJECTED' ? 'Document Rejected' : (user.role === 'FINANCE' ? 'Receipt Verified' : 'Document Approved');
       const notificationBody = `Your ${reviewing.type.replace('_', ' ')} has been ${status.toLowerCase()}.${status === 'REJECTED' ? ` Reason: ${rejectionReason}` : ''}`;
 
-      await NotificationService.sendNotification(
+      // Send notification in background to return UI quickly
+      NotificationService.sendNotification(
         reviewing.studentId, 
         notificationTitle,
         notificationBody,
         'status_change'
-      );
+      ).catch(e => console.error("Failed to send notification:", e));
+
       setReviewing(null);
       setRejectionReason('');
     } catch (err: any) {
