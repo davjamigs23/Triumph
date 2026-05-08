@@ -1,11 +1,19 @@
 import React from 'react';
+import { cn } from '../../lib/utils';
 
-export const TriumphLogo = ({ showText = true, className = "", light = false }: { showText?: boolean, className?: string, light?: boolean }) => {
+export const TriumphLogo = ({ showText = true, className = "", light = false, size = "auto" }: { showText?: boolean, className?: string, light?: boolean, size?: string }) => {
   const primary = light ? "#ffffff" : "#1a237e";
   
+  const height = size === "auto" ? (showText ? "100%" : "100%") : size;
+
   return (
-    <div className={`flex items-center justify-center select-none ${className}`}>
-      <svg viewBox={showText ? "0 0 400 400" : "0 0 400 240"} className="w-full h-full max-w-full" style={{ color: primary }}>
+    <div className={cn("flex items-center justify-center select-none", className)} style={{ height }}>
+      <svg 
+        viewBox={showText ? "0 0 400 380" : "0 0 400 240"} 
+        className="h-full w-auto max-w-full" 
+        preserveAspectRatio="xMidYMid meet"
+        style={{ color: primary }}
+      >
          {/* Flame Base */}
          <path d="M 200 30 C 230 70 230 100 200 100 C 170 100 170 70 200 30 Z" fill="currentColor" />
          <path d="M 200 55 C 215 75 215 90 200 90 C 185 90 185 75 200 55 Z" fill={light ? "#1a237e" : "white"} />

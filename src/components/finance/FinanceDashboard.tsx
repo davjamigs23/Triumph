@@ -78,8 +78,8 @@ export default function FinanceDashboard() {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col h-full p-8">
-          <div className="flex items-center gap-3 mb-12">
-            <TriumphLogo showText={true} />
+          <div className="h-16 w-full flex justify-center mb-12">
+            <TriumphLogo showText={true} className="h-full" />
           </div>
 
           <nav className="space-y-2 flex-1">

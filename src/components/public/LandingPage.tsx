@@ -12,8 +12,10 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#f3f4f6] text-[#111827] flex flex-col font-sans">
       {/* Minimal Header */}
-      <header className="h-[72px] px-6 md:px-12 flex justify-between items-center bg-white border-b border-[#e5e7eb] sticky top-0 z-50">
-        <TriumphLogo showText={true} />
+      <header className="h-[80px] px-6 md:px-12 flex justify-between items-center bg-white border-b border-[#e5e7eb] sticky top-0 z-50">
+        <div className="h-16">
+          <TriumphLogo showText={true} className="h-full" />
+        </div>
       </header>
 
       {/* Hero Section */}
@@ -38,9 +40,17 @@ export default function LandingPage() {
 
         {/* Auth Grid */}
         <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-xl space-y-6">
-            <h3 className="text-xl font-black uppercase tracking-tight">Sign In / Create Account</h3>
+            <div className="flex flex-col items-center gap-2 mb-2">
+              <div className="h-16 w-16">
+                <TriumphLogo showText={false} className="h-full w-full" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-xl font-black uppercase tracking-tight">Portal Access</h3>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#1a237e]">Manage your legacy</p>
+              </div>
+            </div>
             
-            <p className="text-xs text-gray-500">Sign in or create an account to access the portal. Access level is determined automatically based on your registered email address.</p>
+            <p className="text-xs text-gray-400 text-center">Sign in or create an account to access the yearbook portal.</p>
 
             <AuthForm />
         </div>
