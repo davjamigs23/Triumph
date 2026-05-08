@@ -39,25 +39,38 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
   };
 
   useEffect(() => {
-    fetchSubmissions();
-  }, []);
+    const unsubscribe = DocumentService.subscribeToAllPending((docs) => {
+      setSubmissions(docs);
+      setLoading(false);
+    }, filterType);
+    return () => unsubscribe();
+  }, [filterType]);
 
-  const handleReview = async (status: 'APPROVED' | 'REJECTED') => {
+  const handleReview = async (status: 'APPROVED' | 'REJECTED' | 'VERIFIED') => {
     if (!reviewing || !user) return;
     if (status === 'REJECTED' && !rejectionReason) return alert('Please provide a reason for rejection.');
 
     setIsSubmitting(true);
     try {
-      await DocumentService.reviewDocument(reviewing.id, status, user.uid, rejectionReason);
+      if (user.role === 'FINANCE' && reviewing.type === 'RECEIPT') {
+        // Finance can only verify or reject receipts
+        await DocumentService.financeReview(reviewing.id, status === 'REJECTED' ? 'REJECTED' : 'VERIFIED', user.uid, rejectionReason);
+      } else {
+        // Admins can approve or reject
+        await DocumentService.reviewDocument(reviewing.id, status === 'REJECTED' ? 'REJECTED' : 'APPROVED', user.uid, rejectionReason);
+      }
+      
+      const notificationTitle = status === 'REJECTED' ? 'Document Rejected' : (user.role === 'FINANCE' ? 'Receipt Verified' : 'Document Approved');
+      const notificationBody = `Your ${reviewing.type.replace('_', ' ')} has been ${status.toLowerCase()}.${status === 'REJECTED' ? ` Reason: ${rejectionReason}` : ''}`;
+
       await NotificationService.sendNotification(
         reviewing.studentId, 
-        `Document ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
-        `Your ${reviewing.type.replace('_', ' ')} has been ${status.toLowerCase()}.${status === 'REJECTED' ? ` Reason: ${rejectionReason}` : ''}`,
+        notificationTitle,
+        notificationBody,
         'status_change'
       );
       setReviewing(null);
       setRejectionReason('');
-      await fetchSubmissions();
     } catch (err: any) {
       console.error(err);
       alert(`Error: ${err.message || 'Failed to review document'}`);
@@ -131,15 +144,30 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
                   </div>
                 </td>
                 <td className="px-8 py-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-tight text-[#1a237e] bg-[#1a237e]/5 px-2 py-0.5 rounded">{sub.type.replace('_', ' ')}</span>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] w-fit font-bold uppercase tracking-tight text-[#1a237e] bg-[#1a237e]/5 px-2 py-0.5 rounded">{sub.type.replace('_', ' ')}</span>
+                    {sub.type === 'RECEIPT' && sub.financeStatus && (
+                      <span className={cn(
+                        "text-[9px] font-black uppercase px-2 py-0.5 rounded w-fit",
+                        sub.financeStatus === 'VERIFIED' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                      )}>
+                        Finance: {sub.financeStatus}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-8 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-tighter">
                   {new Date(sub.submittedAt).toLocaleDateString()}
                 </td>
                 <td className="px-8 py-4">
-                  <span className="text-[10px] font-black uppercase bg-[#fbbd08]/20 text-[#fbbd08] px-2 py-0.5 rounded-md">Pending Review</span>
+                  <span className={cn(
+                    "text-[10px] font-black uppercase px-2 py-0.5 rounded-md",
+                    sub.type === 'RECEIPT' && sub.financeStatus === 'VERIFIED' 
+                      ? "bg-blue-100 text-blue-700" 
+                      : "bg-[#fbbd08]/20 text-[#fbbd08]"
+                  )}>
+                    {sub.type === 'RECEIPT' && sub.financeStatus === 'VERIFIED' ? 'Finance Verified' : 'Pending Review'}
+                  </span>
                 </td>
                 <td className="px-8 py-4 text-right">
                   <div className="flex justify-end gap-2">
@@ -226,14 +254,23 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
                         onClick={() => handleReview('REJECTED')}
                         className="flex-1 py-4 bg-[#ff5a5a] text-white text-[12px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#ff5a5a]/20 hover:scale-[1.02] transition-all disabled:opacity-50"
                      >
-                       <XCircle className="inline-block mr-2 h-4 w-4" /> {isSubmitting ? 'Rejecting...' : 'Reject Submission'}
+                       <XCircle className="inline-block mr-2 h-4 w-4" /> {isSubmitting ? 'Rejecting...' : (user?.role === 'FINANCE' ? 'Reject Receipt' : 'Reject Submission')}
                      </button>
                      <button 
-                        disabled={isSubmitting}
-                        onClick={() => handleReview('APPROVED')}
-                        className="flex-1 py-4 bg-[#85b27a] text-white text-[12px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#85b27a]/20 hover:scale-[1.02] transition-all disabled:opacity-50"
+                        disabled={isSubmitting || (user?.role === 'ADMIN' && reviewing.type === 'RECEIPT' && reviewing.financeStatus !== 'VERIFIED')}
+                        onClick={() => handleReview(user?.role === 'FINANCE' ? 'VERIFIED' : 'APPROVED')}
+                        className={cn(
+                          "flex-1 py-4 bg-[#85b27a] text-white text-[12px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#85b27a]/20 hover:scale-[1.02] transition-all disabled:opacity-50",
+                          (user?.role === 'ADMIN' && reviewing.type === 'RECEIPT' && reviewing.financeStatus !== 'VERIFIED') && "bg-gray-400 shadow-none cursor-not-allowed opacity-50"
+                        )}
+                        title={user?.role === 'ADMIN' && reviewing.type === 'RECEIPT' && reviewing.financeStatus !== 'VERIFIED' ? "Waiting for Finance Verification" : ""}
                      >
-                       <CheckCircle className="inline-block mr-2 h-4 w-4" /> {isSubmitting ? 'Approving...' : 'Approve & Verify'}
+                       <CheckCircle className="inline-block mr-2 h-4 w-4" /> 
+                       {isSubmitting ? 'Processing...' : (
+                         user?.role === 'FINANCE' ? 'Verify Receipt' : (
+                           reviewing.type === 'RECEIPT' && reviewing.financeStatus !== 'VERIFIED' ? 'Awaiting Finance' : 'Approve & Verify'
+                         )
+                       )}
                      </button>
                   </div>
                </div>

@@ -37,6 +37,9 @@ export interface DocumentSubmission {
   studentId: string;
   submittedAt: string;
   verifiedBy?: string;
+  financeStatus?: 'NONE' | 'VERIFIED' | 'REJECTED';
+  financeVerifiedAt?: string;
+  financeVerifiedBy?: string;
 }
 
 export interface BookingSession {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { ArrowRight, CheckCircle2, ShieldCheck, Clock, Layers, Calendar } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, Layers, Calendar } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { AuthForm } from './AuthForm';
@@ -12,15 +12,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#f3f4f6] text-[#111827] flex flex-col font-sans">
       {/* Minimal Header */}
-      <header className="h-[70px] px-6 md:px-12 flex justify-between items-center bg-white border-b border-[#e5e7eb] sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10">
-            <TriumphLogo showText={false} />
-          </div>
-          <div className="font-extrabold text-lg tracking-tight uppercase">
-            TRIUMPH <span className="text-[#1a237e] font-black">PORTAL</span>
-          </div>
-        </div>
+      <header className="h-[72px] px-6 md:px-12 flex justify-between items-center bg-white border-b border-[#e5e7eb] sticky top-0 z-50">
+        <TriumphLogo showText={true} />
       </header>
 
       {/* Hero Section */}
@@ -30,9 +23,6 @@ export default function LandingPage() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <div className="w-56 mb-8 text-[#0d1b2a]">
-             <TriumphLogo showText={true} />
-          </div>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#1a237e]/5 text-[#1a237e] rounded-full text-[10px] font-black mb-10 tracking-[0.1em] uppercase">
             <Clock className="h-3 w-3" />
             Submissions Open • Batch of 2026

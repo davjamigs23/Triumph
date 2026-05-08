@@ -1,7 +1,7 @@
 import React from 'react';
 
 export const TriumphLogo = ({ showText = true, className = "", light = false }: { showText?: boolean, className?: string, light?: boolean }) => {
-  const primary = light ? "#ffffff" : "#0d1b2a";
+  const primary = light ? "#ffffff" : "#1a237e";
   
   return (
     <div className={`flex items-center justify-center select-none ${className}`}>

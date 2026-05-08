@@ -61,6 +61,30 @@ export const DocumentService = {
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentSubmission));
   },
 
+  subscribeToAllPending(callback: (docs: DocumentSubmission[]) => void, typeFilter?: string) {
+    let q = query(collection(db, 'documents'), where('status', '==', 'PENDING'), orderBy('submittedAt', 'asc'));
+    if (typeFilter) {
+      q = query(collection(db, 'documents'), where('status', '==', 'PENDING'), where('type', '==', typeFilter), orderBy('submittedAt', 'asc'));
+    }
+    return onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentSubmission));
+      callback(docs);
+    });
+  },
+
+  async financeReview(docId: string, financeStatus: 'VERIFIED' | 'REJECTED', financeId: string, reason?: string) {
+    const docRef = doc(db, 'documents', docId);
+    const updateData: any = { 
+      financeStatus,
+      financeVerifiedBy: financeId,
+      financeVerifiedAt: new Date().toISOString()
+    };
+    if (reason) updateData.rejectionReason = reason;
+
+    await updateDoc(docRef, updateData);
+    await AuditService.log(financeId, `FINANCE_${financeStatus}`, 'DOCUMENTS', `Finance reviewed doc ${docId}: ${financeStatus}`);
+  },
+
   async reviewDocument(docId: string, status: 'APPROVED' | 'REJECTED', adminId: string, reason?: string) {
     const docRef = doc(db, 'documents', docId);
     const updateData: any = { 
