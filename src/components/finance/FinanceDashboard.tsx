@@ -159,9 +159,6 @@ export default function FinanceDashboard() {
                 <p className="text-[10px] font-black uppercase text-gray-400">{user?.role}</p>
                 <p className="text-sm font-black text-[#0d1b2a] leading-none">{user?.displayName}</p>
               </div>
-              <div className="h-10 w-10 rounded-xl bg-[#fbbd08]/20 flex items-center justify-center text-[#1a237e] font-black border border-[#fbbd08]/30">
-                {user?.displayName?.charAt(0)}
-              </div>
             </div>
           </div>
         </header>
