@@ -8,6 +8,7 @@ import { useAuth, AuthProvider } from './hooks/useAuth';
 import Shell from './components/layout/Shell';
 import StudentDashboard from './components/student/StudentDashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
+import FinanceDashboard from './components/finance/FinanceDashboard';
 import LandingPage from './components/public/LandingPage';
 import FAQChat from './components/student/FAQChat';
 import { Loader2 } from 'lucide-react';
@@ -29,13 +30,19 @@ function AppContent() {
   }
 
   return (
-    <Shell activeTab={activeTab} setActiveTab={setActiveTab}>
+    <div className="h-full w-full">
       {user.role === 'ADMIN' ? (
-        <AdminDashboard activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Shell activeTab={activeTab} setActiveTab={setActiveTab}>
+          <AdminDashboard activeTab={activeTab} setActiveTab={setActiveTab} />
+        </Shell>
+      ) : user.role === 'FINANCE' ? (
+        <FinanceDashboard />
       ) : (
-        <StudentDashboard activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Shell activeTab={activeTab} setActiveTab={setActiveTab}>
+          <StudentDashboard activeTab={activeTab} setActiveTab={setActiveTab} />
+        </Shell>
       )}
-    </Shell>
+    </div>
   );
 }
 

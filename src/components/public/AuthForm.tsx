@@ -9,6 +9,8 @@ export const AuthForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [role, setRole] = useState<'STUDENT' | 'FINANCE' | 'ADMIN'>('STUDENT');
+  const [secretCode, setSecretCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,11 +31,24 @@ export const AuthForm: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
+
+    if (!isLogin && role === 'FINANCE' && secretCode !== 'Finance123') {
+      setMessage({ text: 'Invalid Finance Admin code.', type: 'error' });
+      setLoading(false);
+      return;
+    }
+
+    if (!isLogin && role === 'ADMIN' && secretCode !== 'Admin123') {
+      setMessage({ text: 'Invalid Admin code.', type: 'error' });
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isLogin) {
         await signInWithEmail(email, password);
       } else {
-        await signUpWithEmail(email, password, displayName);
+        await signUpWithEmail(email, password, displayName, role);
       }
     } catch (err: any) {
       let errorMessage = err.message;
@@ -80,10 +95,53 @@ export const AuthForm: React.FC = () => {
         </div>
       )}
       {!isLogin && (
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400">Full Name</label>
-          <input required type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full p-3 rounded-xl border border-gray-100 bg-gray-50 font-bold focus:ring-1 focus:ring-[#1a237e] outline-none" />
-        </div>
+        <>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-gray-400">Full Name</label>
+            <input required type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full p-3 rounded-xl border border-gray-100 bg-gray-50 font-bold focus:ring-1 focus:ring-[#1a237e] outline-none" />
+          </div>
+          
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-gray-400">Account Type</label>
+            <div className="flex gap-2">
+              <button 
+                type="button" 
+                onClick={() => setRole('STUDENT')}
+                className={cn("flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all", role === 'STUDENT' ? "bg-[#1a237e] text-white border-[#1a237e]" : "bg-white border-gray-100 text-gray-400")}
+              >
+                Student
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setRole('FINANCE')}
+                className={cn("flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all", role === 'FINANCE' ? "bg-[#1a237e] text-white border-[#1a237e]" : "bg-white border-gray-100 text-gray-400")}
+              >
+                Finance
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setRole('ADMIN')}
+                className={cn("flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all", role === 'ADMIN' ? "bg-[#1a237e] text-white border-[#1a237e]" : "bg-white border-gray-100 text-gray-400")}
+              >
+                Admin
+              </button>
+            </div>
+          </div>
+
+          {(role === 'FINANCE' || role === 'ADMIN') && (
+            <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+              <label className="text-[10px] font-black uppercase text-[#ff5a5a]">Secret Access Code</label>
+              <input 
+                required 
+                type="text" 
+                value={secretCode} 
+                onChange={e => setSecretCode(e.target.value)} 
+                placeholder="Enter access code"
+                className="w-full p-3 rounded-xl border border-red-100 bg-red-50 font-bold focus:ring-1 focus:ring-[#ff5a5a] text-[#ff5a5a] outline-none placeholder:text-red-200" 
+              />
+            </div>
+          )}
+        </>
       )}
       <div className="space-y-1">
         <label className="text-[10px] font-black uppercase text-gray-400">Email Address</label>

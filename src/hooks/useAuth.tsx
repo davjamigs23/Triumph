@@ -9,7 +9,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, displayName: string, role?: UserRole) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -36,21 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Listen to changes
             unsubscribeSnapshot = onSnapshot(userDocRef, async (userDoc) => {
                if (userDoc.exists()) {
-                 const userData = userDoc.data() as AppUser;
-                 // Determine role based on email domain
-                 const newRole: UserRole = userData.email.endsWith('@gmail.com') ? 'ADMIN' : 'STUDENT';
-                 
-                 if (userData.role !== newRole) {
-                   const updatedUser = { ...userData, role: newRole };
-                   await setDoc(userDocRef, updatedUser);
-                   setUser(updatedUser);
-                 } else {
-                   setUser(userData);
-                 }
+                 setUser(userDoc.data() as AppUser);
                } else {
                  // Create new profile - For email/pass, displayName might be null
                  const email = firebaseUser.email || '';
-                 const role: UserRole = email.endsWith('@gmail.com') ? 'ADMIN' : 'STUDENT';
+                 const role: UserRole = 'STUDENT';
                  
                  const newUser: AppUser = {
                    uid: firebaseUser.uid,
@@ -94,11 +84,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signInWithEmailAndPassword(auth, email, password);
   };
 
-  const signUpWithEmail = async (email: string, password: string, displayName: string) => {
+  const signUpWithEmail = async (email: string, password: string, displayName: string, role: UserRole = 'STUDENT') => {
     const result = await createUserWithEmailAndPassword(auth, email, password);                
     // Update profile after creation
     const { updateProfile } = await import('firebase/auth');
     await updateProfile(result.user, { displayName });
+
+    // Ensure metadata is correctly set in Firestore immediately
+    const userDocRef = doc(db, 'users', result.user.uid);
+    const newUser: AppUser = {
+      uid: result.user.uid,
+      email: email,
+      displayName: displayName,
+      photoURL: '',
+      role: role,
+      createdAt: new Date().toISOString(),
+    };
+    await setDoc(userDocRef, newUser);
   };
 
   const resetPassword = async (email: string) => {

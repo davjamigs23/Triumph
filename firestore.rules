@@ -21,28 +21,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
     function isSuperAdmin() {
       return isSignedIn() && request.auth.token.email == 'djignaci1@gmail.com';
     }
 
-    function isRoleAdmin() {
+    function isRole(role) {
       return isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
-    }
-
-    function isRoleFinance() {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'FINANCE';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'STUDENT') == role;
     }
 
     function isAdmin() {
-      return isSuperAdmin() || isRoleAdmin();
+      return isSuperAdmin() || isRole('ADMIN');
+    }
+
+    function isFinance() {
+      return isRole('FINANCE');
     }
 
     function isValidId(id) {
@@ -61,11 +54,8 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      // allow get is for single doc access (e.g. useAuth)
       allow get: if isSignedIn(); 
-      // allow list is for admin analytics
       allow list: if isAdmin();
-      // Only the user or an admin can write
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
@@ -73,14 +63,10 @@ service cloud.firestore {
 
     // Documents
     match /documents/{docId} {
-      // Students can read their own, Admins can read all
-      allow read: if isAdmin() || (isSignedIn() && existing().studentId == request.auth.uid);
-      // Students can create their own
+      allow read: if isAdmin() || (isFinance() && (existing().type == 'RECEIPT' || existing().type == 'PAYMENT')) || isOwner(existing().studentId);
       allow create: if isSignedIn() && incoming().studentId == request.auth.uid;
-      // Admins can verify, Students can potentially re-upload (update)
-      allow update: if isAdmin() || (isSignedIn() && existing().studentId == request.auth.uid);
-      // List rules for queries
-      allow list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow update: if isAdmin() || (isFinance() && existing().type == 'RECEIPT') || isOwner(existing().studentId);
+      allow list: if isAdmin() || (isFinance() && (resource.data.type == 'RECEIPT' || resource.data.type == 'PAYMENT')) || (isSignedIn() && resource.data.studentId == request.auth.uid);
       allow delete: if isAdmin();
     }
 
@@ -89,8 +75,8 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isSignedIn() && incoming().studentId == request.auth.uid;
-      allow update: if isAdmin() || (isSignedIn() && existing().studentId == request.auth.uid);
-      allow delete: if isAdmin() || (isSignedIn() && existing().studentId == request.auth.uid);
+      allow update: if isAdmin() || isOwner(existing().studentId);
+      allow delete: if isAdmin() || isOwner(existing().studentId);
     }
 
     // Announcements
@@ -115,15 +101,14 @@ service cloud.firestore {
 
     // Receipts
     match /receipts/{receiptId} {
-      allow read: if isAdmin() || isRoleFinance();
-      allow write: if isAdmin() || isRoleFinance();
+      allow read, list: if isAdmin() || isFinance();
+      allow write: if isAdmin() || isFinance();
     }
 
     // Audit Logs
     match /audit_logs/{logId} {
       allow create: if isSignedIn();
-      allow read: if isAdmin();
-      allow list: if isAdmin();
+      allow read, list: if isAdmin() || isFinance();
     }
 
     // Settings

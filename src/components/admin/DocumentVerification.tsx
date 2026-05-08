@@ -18,7 +18,7 @@ import { NotificationService } from '../../services/NotificationService';
 import { DocumentSubmission } from '../../types';
 import { cn } from '../../lib/utils';
 
-export default function DocumentVerification() {
+export default function DocumentVerification({ filterType }: { filterType?: 'CLEARANCE' | 'RECEIPT' }) {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<DocumentSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +29,7 @@ export default function DocumentVerification() {
 
   const fetchSubmissions = async () => {
     try {
-      const pending = await DocumentService.getAllPending();
+      const pending = await DocumentService.getAllPending(filterType);
       setSubmissions(pending);
     } catch (err) {
       console.error(err);

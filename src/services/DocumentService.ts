@@ -52,8 +52,11 @@ export const DocumentService = {
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentSubmission));
   },
 
-  async getAllPending() {
-    const q = query(collection(db, 'documents'), where('status', '==', 'PENDING'), orderBy('submittedAt', 'asc'));
+  async getAllPending(typeFilter?: string) {
+    let q = query(collection(db, 'documents'), where('status', '==', 'PENDING'), orderBy('submittedAt', 'asc'));
+    if (typeFilter) {
+      q = query(collection(db, 'documents'), where('status', '==', 'PENDING'), where('type', '==', typeFilter), orderBy('submittedAt', 'asc'));
+    }
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentSubmission));
   },
