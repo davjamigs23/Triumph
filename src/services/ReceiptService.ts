@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { collection, doc, deleteDoc, query, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, doc, deleteDoc, query, getDocs, orderBy, limit } from 'firebase/firestore';
 import { AuditService } from './AuditService';
 
 export interface Receipt {
@@ -17,14 +17,6 @@ export const ReceiptService = {
     const q = query(collection(db, 'receipts'), orderBy('date', 'desc'), limit(limitCount));
     const snap = await getDocs(q);
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Receipt));
-  },
-
-  subscribeToReceipts(callback: (receipts: Receipt[]) => void, limitCount: number = 100) {
-    const q = query(collection(db, 'receipts'), orderBy('date', 'desc'), limit(limitCount));
-    return onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Receipt));
-      callback(docs);
-    });
   },
 
   async deleteReceipt(id: string, adminId: string) {
