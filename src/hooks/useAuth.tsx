@@ -86,23 +86,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUpWithEmail = async (email: string, password: string, displayName: string, role: UserRole = 'STUDENT') => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);                
-    
-    // Create Firestore document FIRST before listener can mis-assign role
-    const userDocRef = doc(db, 'users', result.user.uid);
-    const newUser: AppUser = {
-      uid: result.user.uid,
-      email: email,
-      displayName: displayName,
-      photoURL: '',
-      role: role,
-      createdAt: new Date().toISOString(),
-    };
-    await setDoc(userDocRef, newUser);
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);                
+      
+      // Create Firestore document immediately
+      const userDocRef = doc(db, 'users', result.user.uid);
+      const newUser: AppUser = {
+        uid: result.user.uid,
+        email: email,
+        displayName: displayName,
+        photoURL: '',
+        role: role,
+        createdAt: new Date().toISOString(),
+      };
+      
+      try {
+        await setDoc(userDocRef, newUser);
+      } catch (firestoreErr: any) {
+        console.error("Failed to create Firestore profile during registration:", firestoreErr);
+        // We don't throw here yet, we'll try to update profile anyway
+      }
 
-    // Update Firebase Auth profile
-    const { updateProfile } = await import('firebase/auth');
-    await updateProfile(result.user, { displayName });
+      // Update Firebase Auth profile
+      try {
+        const { updateProfile } = await import('firebase/auth');
+        await updateProfile(result.user, { displayName });
+      } catch (authErr: any) {
+        console.error("Failed to update Auth profile displayName:", authErr);
+      }
+    } catch (err: any) {
+      console.error("Sign up error code:", err.code);
+      throw err;
+    }
   };
 
   const resetPassword = async (email: string) => {

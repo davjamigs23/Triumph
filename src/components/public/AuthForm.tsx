@@ -51,19 +51,20 @@ export const AuthForm: React.FC = () => {
         await signUpWithEmail(email, password, displayName, role);
       }
     } catch (err: any) {
+      console.error("Auth Exception:", err.code, err.message);
       let errorMessage = err.message;
       if (err.code === 'auth/operation-not-allowed') {
-        errorMessage = 'Email/Password sign-in is disabled. Please enable it in the Firebase Console (Authentication > Sign-in method).';
+        errorMessage = 'Email/Password sign-in is disabled. Please enable it in the Firebase Console.';
       } else if (err.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered. Try logging in instead.';
+        errorMessage = 'This email is already registered in our system. Please use the "Sign In" tab instead, or reset your password if you forgot it.';
       } else if (err.code === 'auth/network-request-failed') {
-        errorMessage = 'Network error. Please check your internet connection or disable ad-blockers that might be blocking Firebase.';
+        errorMessage = 'Connection lost. Please check your internet or disable any ad-blockers.';
       } else if (err.code === 'auth/weak-password') {
-        errorMessage = 'Password should be at least 6 characters.';
+        errorMessage = 'Password is too short (minimum 6 characters).';
       } else if (err.code === 'auth/invalid-email') {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        errorMessage = 'Invalid email or password.';
+        errorMessage = 'That email address doesn\'t look right. Please check for typos.';
+      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        errorMessage = 'Incorrect email or password. Please try again.';
       }
       setMessage({ text: errorMessage, type: 'error' });
     } finally {
