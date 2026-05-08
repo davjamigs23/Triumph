@@ -188,18 +188,6 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
         <header className="h-[72px] bg-[#fbbd08] flex items-center justify-end px-12 shrink-0 shadow-sm relative z-10 w-full">
           <div className="flex items-center gap-10">
             <div className="flex items-center gap-5">
-              <div 
-                onClick={() => setActiveTab('profile')}
-                className="flex items-center gap-5 group cursor-pointer pl-8 h-10"
-              >
-                <div className="h-10 w-10 rounded-full border-2 border-[#0d1b2a]/20 overflow-hidden flex items-center justify-center bg-white/50 shadow-sm">
-                  {user?.photoURL ? (
-                    <img src={user.photoURL} alt="User" referrerPolicy="no-referrer" />
-                  ) : (
-                    <UserIcon className="h-6 w-6 text-[#0d1b2a]" />
-                  )}
-                </div>
-              </div>
               <button 
                 onClick={logout}
                 className="text-[10px] uppercase font-black hover:text-[#ef4444] transition-colors tracking-widest text-[#0d1b2a]/60 flex items-center gap-2"
