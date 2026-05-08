@@ -261,9 +261,7 @@ export default function FinanceDashboard() {
           )}
           
           {activeTab === 'audit' && (
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-              <AdminAuditLogs />
-            </div>
+            <AdminAuditLogs />
           )}
         </div>
       </main>
