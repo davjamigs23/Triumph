@@ -30,28 +30,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         if (firebaseUser) {
-            // Fetch custom user profile from Firestore or listen to it
             const userDocRef = doc(db, 'users', firebaseUser.uid);
             
-            // Listen to changes
-            unsubscribeSnapshot = onSnapshot(userDocRef, async (userDoc) => {
+            unsubscribeSnapshot = onSnapshot(userDocRef, (userDoc) => {
                if (userDoc.exists()) {
                  setUser(userDoc.data() as AppUser);
                } else {
-                 // Create new profile - For email/pass, displayName might be null
-                 const email = firebaseUser.email || '';
-                 const role: UserRole = 'STUDENT';
-                 
-                 const newUser: AppUser = {
-                   uid: firebaseUser.uid,
-                   email: email,
-                   displayName: firebaseUser.displayName || email.split('@')[0],
-                   photoURL: firebaseUser.photoURL || '',
-                   role: role,
-                   createdAt: new Date().toISOString(),
-                 };
-                 await setDoc(userDocRef, newUser);
-                 setUser(newUser);
+                 // User exists in Auth but not in Firestore yet
+                 // signUpWithEmail or signIn (for Google) will handle creation
+                 setUser(null);
                }
                setLoading(false);
             });
@@ -70,7 +57,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const userDocRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        const newUser: AppUser = {
+          uid: result.user.uid,
+          email: result.user.email || '',
+          displayName: result.user.displayName || (result.user.email?.split('@')[0] || 'User'),
+          photoURL: result.user.photoURL || '',
+          role: 'STUDENT',
+          createdAt: new Date().toISOString(),
+        };
+        await setDoc(userDocRef, newUser);
+      }
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
         console.log('User closed the sign-in popup.');
@@ -86,11 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUpWithEmail = async (email: string, password: string, displayName: string, role: UserRole = 'STUDENT') => {
     const result = await createUserWithEmailAndPassword(auth, email, password);                
-    // Update profile after creation
-    const { updateProfile } = await import('firebase/auth');
-    await updateProfile(result.user, { displayName });
-
-    // Ensure metadata is correctly set in Firestore immediately
+    
+    // Create Firestore document FIRST before listener can mis-assign role
     const userDocRef = doc(db, 'users', result.user.uid);
     const newUser: AppUser = {
       uid: result.user.uid,
@@ -101,6 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString(),
     };
     await setDoc(userDocRef, newUser);
+
+    // Update Firebase Auth profile
+    const { updateProfile } = await import('firebase/auth');
+    await updateProfile(result.user, { displayName });
   };
 
   const resetPassword = async (email: string) => {
