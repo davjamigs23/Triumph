@@ -9,7 +9,7 @@
         "email": { "type": "string" },
         "fullName": { "type": "string" },
         "studentId": { "type": "string" },
-        "role": { "type": "string", "enum": ["student", "admin", "photographer", "layout", "finance"] },
+        "role": { "type": "string", "enum": ["STUDENT", "ADMIN", "PHOTOGRAPHER", "LAYOUT", "FINANCE"] },
         "course": { "type": "string" },
         "section": { "type": "string" },
         "batch": { "type": "string" },

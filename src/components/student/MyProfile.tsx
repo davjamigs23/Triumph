@@ -176,7 +176,13 @@ export default function MyProfile() {
                 <BookOpen className="h-24 w-24" />
              </div>
              <h3 className="text-xl font-black uppercase tracking-tight mb-2">Yearbook Quote</h3>
-             <p className="text-white/60 text-xs font-medium max-w-xs leading-relaxed mb-6">These details will be used for your official yearbook page layout. Ensure they are correct.</p>
+             
+             {/* Inline Quote Display */}
+             <div className="mb-6 p-4 bg-white/5 rounded-2xl border border-white/10 italic text-sm text-white/90">
+                {user.quote ? `"${user.quote}"` : 'No quote added yet. Update your details to set one.'}
+             </div>
+
+             <p className="text-white/60 text-xs font-medium max-w-xs leading-relaxed mb-6">These details will be used for your official yearbook page layout.</p>
              
              <button 
                 onClick={() => setIsMetaModalOpen(true)}

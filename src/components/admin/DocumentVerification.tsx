@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { db } from '../../firebase';
+import { collection, query, onSnapshot, getDocs, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileUp, 
@@ -15,36 +17,43 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { DocumentService } from '../../services/DocumentService';
 import { NotificationService } from '../../services/NotificationService';
-import { DocumentSubmission } from '../../types';
+import { DocumentSubmission, AppUser } from '../../types';
 import { cn } from '../../lib/utils';
 
 export default function DocumentVerification({ filterType }: { filterType?: 'CLEARANCE' | 'RECEIPT' }) {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<DocumentSubmission[]>([]);
+  const [students, setStudents] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<DocumentSubmission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-
-  const fetchSubmissions = async () => {
-    try {
-      const pending = await DocumentService.getAllPending(filterType);
-      setSubmissions(pending);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = DocumentService.subscribeToAllPending((docs) => {
-      setSubmissions(docs);
-      setLoading(false);
-    }, filterType);
-    return () => unsubscribe();
-  }, [filterType]);
+    // Subscriber for submissions
+    const unsubSubmissions = showAll
+      ? DocumentService.subscribeToAllDocuments((docs) => {
+          setSubmissions(docs);
+          setLoading(false);
+        }, filterType)
+      : DocumentService.subscribeToAllPending((docs) => {
+          setSubmissions(docs);
+          setLoading(false);
+        }, filterType);
+
+    // Subscriber for students (real-time)
+    const userQuery = query(collection(db, 'users'), where('role', '==', 'STUDENT'));
+    const unsubStudents = onSnapshot(userQuery, (snap) => {
+      setStudents(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
+    });
+    
+    return () => {
+      unsubSubmissions();
+      unsubStudents();
+    };
+  }, [filterType, showAll]);
 
   const handleReview = async (status: 'APPROVED' | 'REJECTED' | 'VERIFIED') => {
     if (!reviewing || !user) return;
@@ -116,6 +125,26 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
             className="w-full pl-10 pr-4 py-3 rounded-xl bg-white border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#1a237e]/5 shadow-sm font-bold text-sm"
           />
         </div>
+        <div className="flex bg-white rounded-xl p-1 border border-gray-100 shadow-sm">
+          <button 
+            onClick={() => setShowAll(false)}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+              !showAll ? "bg-[#1a237e] text-white shadow-md" : "text-gray-400 hover:text-gray-600"
+            )}
+          >
+            Pending
+          </button>
+          <button 
+            onClick={() => setShowAll(true)}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+              showAll ? "bg-[#1a237e] text-white shadow-md" : "text-gray-400 hover:text-gray-600"
+            )}
+          >
+            All Submissions
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
@@ -130,64 +159,78 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50 font-medium">
-            {filtered.length > 0 ? filtered.map((sub) => (
-              <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors group">
-                <td className="px-8 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-[#1a237e]/5 flex items-center justify-center text-[#1a237e] font-black text-xs">
-                      {sub.studentId.slice(-2)}
+            {filtered.length > 0 ? filtered.map((sub) => {
+              const student = students.find(u => u.studentId === sub.studentId || u.uid === sub.studentId);
+              return (
+                <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <td className="px-8 py-4">
+                    <div className="flex items-center gap-3">
+                      {student?.photoURL ? (
+                        <img src={student.photoURL} alt={student.displayName} className="h-10 w-10 rounded-xl object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-xl bg-[#1a237e]/5 flex items-center justify-center text-[#1a237e] font-black text-xs">
+                          {sub.studentId.slice(-2)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[13px] font-black text-[#0d1b2a]">{sub.fileName}</p>
+                        <p className="text-[10px] opacity-40 font-bold uppercase tracking-widest">ID: {student?.studentId ? student.studentId : 'ID not set'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[13px] font-black text-[#0d1b2a]">{sub.fileName}</p>
-                      <p className="text-[10px] opacity-40 font-bold uppercase tracking-widest">ID: {sub.studentId}</p>
+                  </td>
+                  <td className="px-8 py-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] w-fit font-bold uppercase tracking-tight text-[#1a237e] bg-[#1a237e]/5 px-2 py-0.5 rounded">{sub.type.replace('_', ' ')}</span>
+                      {sub.type === 'RECEIPT' && sub.financeStatus && (
+                        <span className={cn(
+                          "text-[9px] font-black uppercase px-2 py-0.5 rounded w-fit",
+                          sub.financeStatus === 'VERIFIED' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        )}>
+                          Finance: {sub.financeStatus}
+                        </span>
+                      )}
                     </div>
-                  </div>
-                </td>
-                <td className="px-8 py-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[11px] w-fit font-bold uppercase tracking-tight text-[#1a237e] bg-[#1a237e]/5 px-2 py-0.5 rounded">{sub.type.replace('_', ' ')}</span>
-                    {sub.type === 'RECEIPT' && sub.financeStatus && (
-                      <span className={cn(
-                        "text-[9px] font-black uppercase px-2 py-0.5 rounded w-fit",
-                        sub.financeStatus === 'VERIFIED' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                      )}>
-                        Finance: {sub.financeStatus}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-8 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-tighter">
-                  {new Date(sub.submittedAt).toLocaleDateString()}
-                </td>
-                <td className="px-8 py-4">
-                  <span className={cn(
-                    "text-[10px] font-black uppercase px-2 py-0.5 rounded-md",
-                    sub.type === 'RECEIPT' && sub.financeStatus === 'VERIFIED' 
-                      ? "bg-blue-100 text-blue-700" 
-                      : "bg-[#fbbd08]/20 text-[#fbbd08]"
-                  )}>
-                    {sub.type === 'RECEIPT' && sub.financeStatus === 'VERIFIED' ? 'Finance Verified' : 'Pending Review'}
-                  </span>
-                </td>
-                <td className="px-8 py-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button 
-                      onClick={() => setReviewing(sub)}
-                      className="px-4 py-2 bg-[#1a237e] text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:shadow-lg transition-all"
-                    >
-                      Review
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(sub.id)}
-                      className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                      title="Delete Submission"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
+                  </td>
+                  <td className="px-8 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-tighter">
+                    {new Date(sub.submittedAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-8 py-4">
+                    <span className={cn(
+                      "text-[10px] font-black uppercase px-2 py-0.5 rounded-md",
+                      sub.status === 'APPROVED' ? "bg-green-100 text-green-700" :
+                      sub.status === 'REJECTED' ? "bg-red-100 text-red-700" :
+                      sub.type === 'RECEIPT' && sub.financeStatus === 'VERIFIED' 
+                        ? "bg-blue-100 text-blue-700" 
+                        : "bg-[#fbbd08]/20 text-[#fbbd08]"
+                    )}>
+                      {sub.status === 'APPROVED' ? 'Approved' :
+                       sub.status === 'REJECTED' ? 'Rejected' :
+                       sub.type === 'RECEIPT' && sub.financeStatus === 'VERIFIED' ? 'Finance Verified' : 'Pending Review'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => setReviewing(sub)}
+                        className={cn(
+                          "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                          sub.status === 'PENDING' ? "bg-[#1a237e] text-white hover:shadow-lg" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        )}
+                      >
+                        {sub.status === 'PENDING' ? 'Review' : 'View'}
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(sub.id)}
+                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        title="Delete Submission"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            }) : (
               <tr>
                 <td colSpan={5} className="px-8 py-12 text-center text-gray-300 text-[11px] font-black uppercase tracking-widest">
                   No pending submissions found.

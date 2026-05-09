@@ -96,11 +96,24 @@ export default function SmartScheduling() {
 
   const timeSlots = ScheduleService.getAvailableTimeSlots();
 
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">Scheduling</h2>
+          <h2 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">Schedule</h2>
           <p className="text-sm text-gray-500 font-medium">Manage your professional yearbook photo session bookings.</p>
         </div>
         {!currentBooking && (
@@ -129,7 +142,7 @@ export default function SmartScheduling() {
                    <div>
                      <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full">Current Appointment</span>
                      <h3 className="text-5xl font-black tracking-tighter mt-4 uppercase leading-none">
-                       {currentBooking.date}
+                       {formatDate(currentBooking.date)}
                      </h3>
                      <div className="flex items-center gap-2 mt-2 opacity-80 text-lg font-black tracking-widest">
                        <Clock className="h-5 w-5" />
@@ -161,8 +174,8 @@ export default function SmartScheduling() {
              ) : (
                <div className="relative z-10 py-12 text-center space-y-4">
                   <CalendarIcon className="h-16 w-16 mx-auto opacity-40" />
-                  <h3 className="text-2xl font-black uppercase tracking-tighter">No booking found</h3>
-                  <p className="max-w-xs mx-auto text-sm font-medium opacity-60">You haven't scheduled your photo session yet. Book now to secure your spot.</p>
+                  <h3 className="text-2xl font-black uppercase tracking-tighter">No session scheduled</h3>
+                  <p className="max-w-xs mx-auto text-sm font-medium opacity-60">You haven't booked your photo session yet. Secured slots appear here.</p>
                </div>
              )}
            </div>
@@ -391,6 +404,71 @@ export default function SmartScheduling() {
                      Yes, Cancel
                   </button>
                </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Dress Code Guide Modal */}
+      <AnimatePresence>
+        {isGuideOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="w-full max-w-2xl bg-white rounded-3xl overflow-hidden shadow-2xl"
+            >
+              <div className="px-8 py-6 bg-[#1a237e] text-white flex justify-between items-center">
+                <h3 className="text-lg font-black uppercase tracking-tight">Dress Code Guide</h3>
+                <button onClick={() => setIsGuideOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="p-8 space-y-6">
+                <div className="grid md:grid-cols-2 gap-8">
+                   <div className="space-y-4">
+                      <h4 className="text-sm font-black text-[#0d1b2a] uppercase tracking-wider">Male Students</h4>
+                      <ul className="space-y-3">
+                         {[
+                           'Formal black/navy blazer',
+                           'White long-sleeved polo',
+                           'Black tie (standard width)',
+                           'Clean-shaven or neatly groomed beard',
+                           'Appropriate school-standard haircut'
+                         ].map((item, i) => (
+                           <li key={i} className="flex items-center gap-3 text-xs font-bold text-gray-600">
+                             <div className="h-1.5 w-1.5 rounded-full bg-[#fbbd08]" />
+                             {item}
+                           </li>
+                         ))}
+                      </ul>
+                   </div>
+                   <div className="space-y-4">
+                      <h4 className="text-sm font-black text-[#0d1b2a] uppercase tracking-wider">Female Students</h4>
+                      <ul className="space-y-3">
+                         {[
+                           'Formal black/navy blazer',
+                           'White inner shirt/polo',
+                           'Modest natural-looking makeup',
+                           'Neatly styled hair (Ear-exposed)',
+                           'Minimal jewelry (Small studs)'
+                         ].map((item, i) => (
+                           <li key={i} className="flex items-center gap-3 text-xs font-bold text-gray-600">
+                             <div className="h-1.5 w-1.5 rounded-full bg-[#fbbd08]" />
+                             {item}
+                           </li>
+                         ))}
+                      </ul>
+                   </div>
+                </div>
+                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex gap-4">
+                   <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                   <p className="text-[11px] font-bold text-amber-800 leading-relaxed uppercase">
+                      Students who fail to follow the dress code will not be allowed to proceed with the session and must reschedule.
+                   </p>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

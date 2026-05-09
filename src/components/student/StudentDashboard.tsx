@@ -92,10 +92,24 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
     return 'pending';
   };
 
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   const calculateProgress = () => {
     const requirements = [
       getDocStatus('CLEARANCE'),
       getDocStatus('RECEIPT'),
+      getDocStatus('BIRTH_CERTIFICATE'),
       booking ? 'complete' : 'action',
       user?.displayName ? 'complete' : 'action', // Simplified profile check
     ];
@@ -168,6 +182,11 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
                   onClick={() => setActiveTab('documents')}
                 />
                 <RequirementItem 
+                  label="Birth Certificate" 
+                  status={getDocStatus('BIRTH_CERTIFICATE')} 
+                  onClick={() => setActiveTab('documents')}
+                />
+                <RequirementItem 
                   label="Payment Receipt" 
                   status={getDocStatus('RECEIPT')} 
                   onClick={() => setActiveTab('documents')}
@@ -213,13 +232,13 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
             <div className="flex justify-between items-start mb-6">
                <div className="text-[11px] font-black uppercase tracking-widest opacity-70">PHOTO SESSION</div>
                <div className={cn("text-[9px] font-black uppercase px-4 py-1.5 rounded-full", booking ? "bg-white/20" : "bg-[#fbbd08] text-[#0d1b2a]")}>
-                  {booking ? 'Booked' : 'Pending'}
+                  {booking ? 'Booked' : 'Not Booked'}
                </div>
             </div>
             
             {booking ? (
               <div className="mb-6">
-                <h3 className="text-xl font-black">{booking.date}</h3>
+                <h3 className="text-xl font-black">{formatDate(booking.date)}</h3>
                 <p className="text-sm font-bold opacity-80 uppercase tracking-widest">{booking.timeSlot}</p>
               </div>
             ) : (

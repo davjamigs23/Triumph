@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../../firebase';
-import { collection, query, getDocs, orderBy } from 'firebase/firestore';
-import { BookingSession } from '../../types';
+import { collection, query, getDocs, orderBy, where } from 'firebase/firestore';
+import { BookingSession, AppUser } from '../../types';
 import { Calendar, Search, Clock, User, X, Filter, CheckCircle2, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ScheduleService } from '../../services/ScheduleService';
@@ -10,27 +10,41 @@ import { useAuth } from '../../hooks/useAuth';
 export default function AdminScheduleManagement() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<BookingSession[]>([]);
+  const [students, setStudents] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'>('ALL');
+  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
   useEffect(() => {
-    const fetchSessions = async () => {
-      const q = query(collection(db, 'appointments'), orderBy('date', 'desc'));
-      const snap = await getDocs(q);
-      setSessions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BookingSession)));
+    const fetchData = async () => {
+      setLoading(true);
+      const [sessionsSnap, usersSnap] = await Promise.all([
+        getDocs(query(collection(db, 'appointments'))),
+        getDocs(query(collection(db, 'users'), where('role', '==', 'STUDENT')))
+      ]);
+      setSessions(sessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BookingSession)));
+      setStudents(usersSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
       setLoading(false);
     };
-    fetchSessions();
+    fetchData();
   }, []);
 
   const filteredSessions = useMemo(() => {
-    return sessions.filter(s => {
-      const matchesSearch = s.studentId.toLowerCase().includes(searchTerm.toLowerCase());
+    let filtered = sessions.filter(s => {
+      const student = students.find(u => u.studentId === s.studentId || u.uid === s.studentId);
+      const name = student?.displayName || 'Unknown';
+      const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || s.studentId.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [sessions, searchTerm, statusFilter]);
+
+    return filtered.sort((a, b) => {
+      return sortOrder === 'ASC' 
+        ? new Date(a.date).getTime() - new Date(b.date).getTime()
+        : new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [sessions, students, searchTerm, statusFilter, sortOrder]);
 
   const handleCancel = async (id: string, studentId: string, date: string, currentStatus: string) => {
     if (currentStatus === 'CANCELLED') return;
@@ -95,6 +109,12 @@ export default function AdminScheduleManagement() {
               <option value="COMPLETED">Completed</option>
               <option value="CANCELLED">Cancelled</option>
            </select>
+           <button 
+             onClick={() => setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC')}
+             className="px-4 py-2 bg-white rounded-xl border border-gray-100 text-[10px] font-black uppercase tracking-widest shadow-sm"
+           >
+             Sort Date {sortOrder === 'ASC' ? '▲' : '▼'}
+           </button>
         </div>
       </div>
 
@@ -103,7 +123,7 @@ export default function AdminScheduleManagement() {
           <table className="w-full text-left">
             <thead className="bg-gray-50/50 text-[10px] font-black uppercase tracking-widest text-gray-400">
               <tr>
-                <th className="px-8 py-4">Student ID</th>
+                <th className="px-8 py-4">Student</th>
                 <th className="px-8 py-4">Date</th>
                 <th className="px-8 py-4">Time Slot</th>
                 <th className="px-8 py-4">Status</th>
@@ -111,9 +131,11 @@ export default function AdminScheduleManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 font-bold">
-              {filteredSessions.map((s) => (
+              {filteredSessions.map((s) => {
+                 const student = students.find(u => u.studentId === s.studentId || u.uid === s.studentId);
+                 return (
                 <tr key={s.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="px-8 py-4 text-sm text-[#0d1b2a] font-black">{s.studentId}</td>
+                  <td className="px-8 py-4 text-sm text-[#0d1b2a] font-black">{student?.displayName || s.studentId}</td>
                   <td className="px-8 py-4 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3 w-3 opacity-30" />
@@ -157,7 +179,8 @@ export default function AdminScheduleManagement() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                 );
+              })}
               {filteredSessions.length === 0 && !loading && (
                  <tr>
                    <td colSpan={5} className="px-8 py-20 text-center text-gray-300 text-[11px] font-black uppercase tracking-widest">

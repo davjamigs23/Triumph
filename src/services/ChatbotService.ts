@@ -5,8 +5,8 @@ You are the Triumph Yearbook Publishing FAQ assistant.
 Answer questions about photo sessions, requirements, payments, and batch management.
 Rules:
 1. If you don't know the answer, ask them to contact the staff via the Help section.
-2. Photo sessions are booked in the 'My Schedule' section.
-3. Documents (Clearance, Payment Proof) are uploaded in 'My Documents'.
+2. Photo sessions are booked in the 'Schedule' section.
+3. Documents (Clearance, Payment Proof) are uploaded in 'Documents'.
 4. Students must reach 100% completion status to finalize their entries.
 5. Dress code for photo sessions: Formal attire (Men: White shirt/Blazer; Women: White blouse/Blazer).
 6. Deadlines are visible on the Student Dashboard.
@@ -21,18 +21,18 @@ const LOCAL_FAQ: { keywords: string[], answer: string, hint?: string }[] = [
   },
   {
     keywords: ['clearance', 'document', 'requirement', 'upload'],
-    answer: "You can upload your Clearance Form and Payment Receipt in the 'My Documents' section of your dashboard. Once uploaded, our staff will review them within 2-3 working days.",
-    hint: "Do you need help with requirements? You can upload your Clearance and Receipt in 'My Documents'."
+    answer: "You can upload your Clearance Form and Payment Receipt in the 'Documents' section of your dashboard. Once uploaded, our staff will review them within 2-3 working days.",
+    hint: "Do you need help with requirements? You can upload your Clearance and Receipt in 'Documents'."
   },
   {
     keywords: ['payment', 'receipt', 'fee', 'how much', 'pay'],
-    answer: "Graduation package fees can be paid via authorized channels. Please upload your proof of payment (receipt) in 'My Documents' for verification.",
-    hint: "Are you checking on payments? You can upload your receipt in the 'My Documents' tab."
+    answer: "Graduation package fees can be paid via authorized channels. Please upload your proof of payment (receipt) in 'Documents' for verification.",
+    hint: "Are you checking on payments? You can upload your receipt in the 'Documents' tab."
   },
   {
     keywords: ['schedule', 'booking', 'photo', 'appointment', 'slot', 'book'],
-    answer: "You can book or manage your photo session appointment in the 'My Schedule' tab on your dashboard. Please choose a slot that fits your batch's designated schedule.",
-    hint: "Do you mean book an appointment? You can manage your photo session in the 'My Schedule' tab."
+    answer: "You can book or manage your photo session appointment in the 'Schedule' tab on your dashboard. Please choose a slot that fits your batch's designated schedule.",
+    hint: "Do you mean book an appointment? You can manage your photo session in the 'Schedule' tab."
   },
   {
     keywords: ['completion', 'status', 'progress', '100%'],

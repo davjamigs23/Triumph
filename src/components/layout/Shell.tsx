@@ -80,8 +80,10 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
   }, [user]);
 
   const getPageContent = () => {
-    // Admin Views
-    if (user?.role === 'ADMIN') {
+    // Admin & Staff Views
+    const isAdminStaff = ['ADMIN', 'FINANCE', 'PHOTOGRAPHER', 'LAYOUT'].includes(user?.role || '');
+    
+    if (isAdminStaff) {
       if (activeTab === 'dashboard') return <AdminDashboard activeTab="dashboard" setActiveTab={setActiveTab} />;
       if (activeTab === 'verification') return <DocumentVerification />;
       if (activeTab === 'announcements') return <AnnouncementBoard />;
@@ -129,12 +131,13 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
   ] : user?.role === 'FINANCE' ? [
     { section: 'MAIN', items: [
       { id: 'receipts', label: 'Receipts', icon: <FileText /> },
+      { id: 'audit', label: 'Audit Logs', icon: <History /> },
     ]}
   ] : [
     { section: 'MAIN', items: [
       { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard /> },
-      { id: 'schedule', label: 'My Scheduling', icon: <Calendar /> },
-      { id: 'documents', label: 'My Documents', icon: <FileText /> },
+      { id: 'schedule', label: 'Schedule', icon: <Calendar /> },
+      { id: 'documents', label: 'Documents', icon: <FileText /> },
     ]},
     { section: 'ACCOUNT', items: [
       { id: 'profile', label: 'My Profile', icon: <UserIcon /> },

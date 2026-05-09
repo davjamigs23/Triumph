@@ -4,6 +4,7 @@ import { collection, query, getDocs, orderBy, limit, addDoc } from 'firebase/fir
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FileText, Search, CreditCard, DollarSign, Download, Plus, X, Upload, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { cn } from '../../lib/utils';
 import { AuditService } from '../../services/AuditService';
 import { ReceiptService, Receipt } from '../../services/ReceiptService';
 
@@ -12,16 +13,30 @@ export default function AdminReceipts() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
-  const [newReceipt, setNewReceipt] = useState({ studentId: '', purpose: 'YEARBOOK_FEE', referenceNo: '' });
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [newReceipt, setNewReceipt] = useState({ studentId: '', purpose: 'YEARBOOK_FEE', referenceNo: '', status: 'PENDING' });
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchReceipts = async () => {
+    setLoading(true);
     try {
-      const data = await ReceiptService.getAllReceipts();
+      const data = await ReceiptService.getAllReceipts(100, filterStatus);
       setReceipts(data);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: 'PAID' | 'PENDING' | 'REJECTED') => {
+    if (!user) return;
+    try {
+      await ReceiptService.updateStatus(id, newStatus, user.uid);
+      setReceipts(receipts.map(r => r.id === id ? { ...r, status: newStatus } : r));
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update status');
     }
   };
 
@@ -40,36 +55,37 @@ export default function AdminReceipts() {
 
   useEffect(() => {
     fetchReceipts();
-  }, []);
+  }, [filterStatus]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     
     setUploading(true);
+    setError(null);
     try {
       let imageUrl = '';
       if (file) {
+        if (file.size > 5 * 1024 * 1024) throw new Error('File is too large (max 5MB)');
         const storageRef = ref(storage, `receipts/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
-        imageUrl = await getDownloadURL(storageRef);
+        const snapshot = await uploadBytes(storageRef, file);
+        imageUrl = await getDownloadURL(snapshot.ref);
       }
 
       const receiptData = {
         ...newReceipt,
-        status: 'PAID',
         date: new Date().toISOString(),
         imageUrl
       };
       await addDoc(collection(db, 'receipts'), receiptData);
       await AuditService.log(user.uid, 'CREATE', 'RECEIPTS', `Generated receipt for ${newReceipt.studentId}`);
       setIsAdding(false);
-      setNewReceipt({ studentId: '', purpose: 'YEARBOOK_FEE', referenceNo: '' });
+      setNewReceipt({ studentId: '', purpose: 'YEARBOOK_FEE', referenceNo: '', status: 'PENDING' });
       setFile(null);
       fetchReceipts();
     } catch (e) {
       console.error(e);
-      alert('Failed to generate receipt');
+      setError(e instanceof Error ? e.message : 'Failed to generate receipt');
     } finally {
       setUploading(false);
     }
@@ -77,17 +93,33 @@ export default function AdminReceipts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h2 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">Receipts</h2>
-          <p className="text-sm text-gray-500 font-medium">Verify and track student receipts for yearbook fees, graduation photos, and additional sets.</p>
+          <p className="text-sm text-gray-500 font-medium tracking-tight">Verify and track student receipts for yearbook fees and optional packages.</p>
         </div>
-        <button 
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-[#1a237e] text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:shadow-xl transition-all"
-        >
-          <Plus className="h-4 w-4" /> Add Receipt
-        </button>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex bg-white rounded-xl p-1 border border-gray-100 shadow-sm shrink-0">
+             {['ALL', 'PENDING', 'PAID', 'REJECTED'].map((s) => (
+               <button 
+                 key={s}
+                 onClick={() => setFilterStatus(s)}
+                 className={cn(
+                   "px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                   filterStatus === s ? "bg-[#1a237e] text-white shadow-md" : "text-gray-400 hover:text-gray-600"
+                 )}
+               >
+                 {s}
+               </button>
+             ))}
+          </div>
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-[#fbbd08] text-[#0d1b2a] text-[10px] font-black uppercase tracking-widest rounded-xl hover:shadow-xl transition-all shadow-md ml-auto"
+          >
+            <Plus className="h-4 w-4" /> Add Record
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden text-left">
@@ -110,22 +142,47 @@ export default function AdminReceipts() {
                 <td className="px-8 py-4 text-[#0d1b2a]">{r.studentId}</td>
                 <td className="px-8 py-4 uppercase text-[11px]">{r.purpose.replace('_', ' ')}</td>
                 <td className="px-8 py-4">
-                   <span className="bg-[#85b27a]/20 text-[#85b27a] px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-widest">{r.status}</span>
+                   <span className={cn(
+                     "px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-widest",
+                     r.status === 'PAID' ? "bg-green-100 text-green-700" :
+                     r.status === 'REJECTED' ? "bg-red-100 text-red-700" :
+                     "bg-[#fbbd08]/20 text-[#fbbd08]"
+                   )}>
+                     {r.status}
+                   </span>
                 </td>
                 <td className="px-8 py-4">
-                  {r.imageUrl && <a href={r.imageUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700 underline text-[10px]">View</a>}
+                  {r.imageUrl && <a href={r.imageUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700 underline text-[10px] font-black uppercase tracking-widest">View Doc</a>}
                 </td>
                 <td className="px-8 py-4 text-gray-400 font-medium">
                    {new Date(r.date).toLocaleDateString()}
                 </td>
-                <td className="px-8 py-4 text-right opacity-0 group-hover:opacity-100 transition-all">
-                  <button 
-                    onClick={() => handleDelete(r.id)}
-                    className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg"
-                    title="Delete Receipt"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                <td className="px-8 py-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    {r.status === 'PENDING' && (
+                      <>
+                        <button 
+                          onClick={() => handleUpdateStatus(r.id, 'PAID')}
+                          className="px-3 py-1 bg-green-50 text-green-700 text-[9px] font-black uppercase rounded hover:bg-green-100 transition-colors"
+                        >
+                          Verify
+                        </button>
+                        <button 
+                          onClick={() => handleUpdateStatus(r.id, 'REJECTED')}
+                          className="px-3 py-1 bg-red-50 text-red-700 text-[9px] font-black uppercase rounded hover:bg-red-100 transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    <button 
+                      onClick={() => handleDelete(r.id)}
+                      className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      title="Delete Receipt"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -148,6 +205,11 @@ export default function AdminReceipts() {
                  <button onClick={() => setIsAdding(false)}><X className="h-6 w-6" /></button>
               </div>
               <form onSubmit={handleCreate} className="p-8 space-y-4">
+                 {error && (
+                    <div className="p-3 bg-red-50 text-red-700 text-[10px] font-black uppercase rounded-lg border border-red-100">
+                      {error}
+                    </div>
+                 )}
                  <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Student ID / Full Name</label>
                     <input 
@@ -181,6 +243,18 @@ export default function AdminReceipts() {
                        <option value="PHOTO_SESSION">Photo Session Fee</option>
                        <option value="GRAD_PACKAGE">Graduation Package</option>
                        <option value="ADDITIONAL_COPY">Additional Yearbook Copy</option>
+                    </select>
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Initial Status</label>
+                    <select 
+                      value={newReceipt.status}
+                      onChange={e => setNewReceipt({...newReceipt, status: e.target.value as any})}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold border border-gray-100"
+                    >
+                       <option value="PAID">Verified (Paid)</option>
+                       <option value="PENDING">Unverified (Pending)</option>
+                       <option value="REJECTED">Rejected</option>
                     </select>
                  </div>
                  <div className="space-y-1">

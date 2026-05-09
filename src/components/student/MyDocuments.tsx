@@ -87,7 +87,7 @@ export default function MyDocuments() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">My Documents</h1>
+        <h1 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">Documents</h1>
         <p className="text-sm text-gray-500 font-medium">Upload and track your requirements for verification.</p>
       </div>
 

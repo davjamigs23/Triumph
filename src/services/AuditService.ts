@@ -19,17 +19,28 @@ export class AuditService {
     }
   }
 
-  static async getLogs(max = 100): Promise<any[]> {
-    const q = query(
-      collection(db, this.COLLECTION),
-      orderBy('timestamp', 'desc'),
-      limit(max)
-    );
+  static async getLogs(max = 100, module?: string): Promise<any[]> {
+    const { query, collection, orderBy, limit, where, getDocs } = await import('firebase/firestore');
+    let q;
+    if (module && module !== 'ALL') {
+      q = query(
+        collection(db, this.COLLECTION),
+        where('module', '==', module),
+        orderBy('timestamp', 'desc'),
+        limit(max)
+      );
+    } else {
+      q = query(
+        collection(db, this.COLLECTION),
+        orderBy('timestamp', 'desc'),
+        limit(max)
+      );
+    }
     
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...(doc.data() as object)
     }));
   }
 }
