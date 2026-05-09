@@ -6,6 +6,7 @@ import { Calendar, Search, Clock, User, X, Filter, CheckCircle2, Trash2 } from '
 import { cn } from '../../lib/utils';
 import { ScheduleService } from '../../services/ScheduleService';
 import { useAuth } from '../../hooks/useAuth';
+import FeedbackModal from '../ui/FeedbackModal';
 
 export default function AdminScheduleManagement() {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ export default function AdminScheduleManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'>('ALL');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+  const [feedback, setFeedback] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,38 +50,55 @@ export default function AdminScheduleManagement() {
 
   const handleCancel = async (id: string, studentId: string, date: string, currentStatus: string) => {
     if (currentStatus === 'CANCELLED') return;
-    if (!confirm('Cancel this session? The student will be notified.')) return;
-    try {
-      const { updateDoc, doc } = await import('firebase/firestore');
-      const { NotificationService } = await import('../../services/NotificationService');
-      await updateDoc(doc(db, 'appointments', id), {
-        status: 'CANCELLED'
-      });
-      await NotificationService.sendNotification(
-        studentId, 
-        'Session Cancelled', 
-        `Your yearbook photo session for ${date} has been cancelled by an administrator.`, 
-        'status_change'
-      );
-      
-      setSessions(sessions.map(s => s.id === id ? { ...s, status: 'CANCELLED' } : s));
-    } catch (e) {
-      console.error(e);
-      alert('Failed to cancel session');
-    }
+    setFeedback({
+      title: 'Cancel Session',
+      message: 'Cancel this session? The student will be notified.',
+      type: 'confirm',
+      onConfirm: async () => {
+        setFeedback(null);
+        try {
+          const { updateDoc, doc } = await import('firebase/firestore');
+          const { NotificationService } = await import('../../services/NotificationService');
+          await updateDoc(doc(db, 'appointments', id), {
+            status: 'CANCELLED'
+          });
+          await NotificationService.sendNotification(
+            studentId, 
+            'Session Cancelled', 
+            `Your yearbook photo session for ${date} has been cancelled by an administrator.`, 
+            'status_change'
+          );
+          
+          setSessions(sessions.map(s => s.id === id ? { ...s, status: 'CANCELLED' } : s));
+          setFeedback({ title: 'Success', message: 'Session cancelled successfully.', type: 'info', onClose: () => setFeedback(null) });
+        } catch (e) {
+          console.error(e);
+          setFeedback({ title: 'Error', message: 'Failed to cancel session', type: 'error', onClose: () => setFeedback(null) });
+        }
+      },
+      onCancel: () => setFeedback(null)
+    });
   };
 
   const handleDelete = async (id: string) => {
     if (!user) return;
-    if (!confirm('PERMANENTLY DELETE this appointment record? This cannot be undone.')) return;
-    try {
-      await ScheduleService.deleteAppointment(id, user.uid);
-      setSessions(sessions.filter(s => s.id !== id));
-      alert('Appointment deleted successfully.');
-    } catch (e) {
-      console.error(e);
-      alert('Failed to delete appointment');
-    }
+    setFeedback({
+      title: 'Delete Session',
+      message: 'PERMANENTLY DELETE this appointment record? This cannot be undone.',
+      type: 'confirm',
+      onConfirm: async () => {
+        setFeedback(null);
+        try {
+          await ScheduleService.deleteAppointment(id, user.uid);
+          setSessions(sessions.filter(s => s.id !== id));
+          setFeedback({ title: 'Success', message: 'Appointment deleted successfully.', type: 'info', onClose: () => setFeedback(null) });
+        } catch (e) {
+          console.error(e);
+          setFeedback({ title: 'Error', message: 'Failed to delete appointment', type: 'error', onClose: () => setFeedback(null) });
+        }
+      },
+      onCancel: () => setFeedback(null)
+    });
   };
 
   return (
@@ -192,6 +211,7 @@ export default function AdminScheduleManagement() {
           </table>
         </div>
       </div>
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

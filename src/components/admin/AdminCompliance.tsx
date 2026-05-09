@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { ComplianceService, ComplianceStats } from '../../services/ComplianceService';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { AlertCircle, FileCheck, Calendar } from 'lucide-react';
+import FeedbackModal from '../ui/FeedbackModal';
 
 export default function AdminCompliance() {
   const [stats, setStats] = useState<ComplianceStats | null>(null);
   const [nonCompliant, setNonCompliant] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [remindingAll, setRemindingAll] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
 
   useEffect(() => {
     const unsub = ComplianceService.subscribeToComplianceData((s, nc) => {
@@ -27,35 +29,42 @@ export default function AdminCompliance() {
         `You have a missing requirement: ${missing}. Please complete it to proceed with your yearbook processing.`,
         'deadline'
       );
-      alert('Reminder sent successfully!');
+      setFeedback({ title: 'Success', message: 'Reminder sent successfully!', type: 'info', onClose: () => setFeedback(null) });
     } catch (e) {
       console.error(e);
-      alert('Failed to send reminder');
+      setFeedback({ title: 'Error', message: 'Failed to send reminder', type: 'error', onClose: () => setFeedback(null) });
     }
    };
 
    const handleRemindAll = async () => {
     if (!nonCompliant.length) return;
-    if (!confirm(`Send reminders to all ${nonCompliant.length} students with missing requirements?`)) return;
-    
-    setRemindingAll(true);
-    try {
-      const { NotificationService } = await import('../../services/NotificationService');
-      await Promise.all(nonCompliant.map(s => 
-        NotificationService.sendNotification(
-          s.id,
-          'Urgent: Missing Requirements',
-          `This is a collective reminder: You are missing ${s.missing}. Please settle this immediately.`,
-          'deadline'
-        )
-      ));
-      alert(`Successfully sent ${nonCompliant.length} reminders.`);
-    } catch (e) {
-      console.error(e);
-      alert('Failed to send some reminders.');
-    } finally {
-      setRemindingAll(false);
-    }
+    setFeedback({
+      title: 'Send Reminders',
+      message: `Send reminders to all ${nonCompliant.length} students with missing requirements?`,
+      type: 'confirm',
+      onConfirm: async () => {
+        setFeedback(null);
+        setRemindingAll(true);
+        try {
+          const { NotificationService } = await import('../../services/NotificationService');
+          await Promise.all(nonCompliant.map(s => 
+            NotificationService.sendNotification(
+              s.id,
+              'Urgent: Missing Requirements',
+              `This is a collective reminder: You are missing ${s.missing}. Please settle this immediately.`,
+              'deadline'
+            )
+          ));
+          setFeedback({ title: 'Success', message: `Successfully sent ${nonCompliant.length} reminders.`, type: 'info', onClose: () => setFeedback(null) });
+        } catch (e) {
+          console.error(e);
+          setFeedback({ title: 'Error', message: 'Failed to send some reminders.', type: 'error', onClose: () => setFeedback(null) });
+        } finally {
+          setRemindingAll(false);
+        }
+      },
+      onCancel: () => setFeedback(null)
+    });
    };
 
   if (loading) return (
@@ -126,6 +135,7 @@ export default function AdminCompliance() {
            )}
         </div>
       </div>
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

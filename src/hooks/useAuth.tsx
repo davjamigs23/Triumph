@@ -3,6 +3,7 @@ import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, signOut,
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';                
 import { auth, db } from '../firebase';
 import { AppUser, UserRole } from '../types';
+import { handleFirestoreError, OperationType } from '../lib/utils';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -32,16 +33,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (firebaseUser) {
             const userDocRef = doc(db, 'users', firebaseUser.uid);
             
-            unsubscribeSnapshot = onSnapshot(userDocRef, (userDoc) => {
-               if (userDoc.exists()) {
-                 setUser(userDoc.data() as AppUser);
-               } else {
-                 // User exists in Auth but not in Firestore yet
-                 // signUpWithEmail or signIn (for Google) will handle creation
-                 setUser(null);
-               }
-               setLoading(false);
-            });
+            unsubscribeSnapshot = onSnapshot(userDocRef, 
+              (userDoc) => {
+                if (userDoc.exists()) {
+                  setUser(userDoc.data() as AppUser);
+                } else {
+                  setUser(null);
+                }
+                setLoading(false);
+              },
+              (error) => {
+                // If it's a new user, they might not have a document yet, but 'get' should still be allowed.
+                // However, if it fails, we handle it.
+                handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+                setLoading(false);
+              }
+            );
         } else {
           setUser(null);
           setLoading(false);
@@ -62,12 +69,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDoc = await getDoc(userDocRef);
       
       if (!userDoc.exists()) {
+        const isSuperAdmin = result.user.email === 'djignaci1@gmail.com' || result.user.email === 'djignaci2@gmail.com';
         const newUser: AppUser = {
           uid: result.user.uid,
           email: result.user.email || '',
           displayName: result.user.displayName || (result.user.email?.split('@')[0] || 'User'),
           photoURL: result.user.photoURL || '',
-          role: 'STUDENT',
+          role: isSuperAdmin ? 'ADMIN' : 'STUDENT',
           createdAt: new Date().toISOString(),
         };
         await setDoc(userDocRef, newUser);
@@ -89,6 +97,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);                
       
+      const isSuperAdmin = email === 'djignaci1@gmail.com' || email === 'djignaci2@gmail.com';
+      const finalRole = isSuperAdmin ? 'ADMIN' : role;
+
       // Create Firestore document immediately
       const userDocRef = doc(db, 'users', result.user.uid);
       const newUser: AppUser = {
@@ -96,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: email,
         displayName: displayName,
         photoURL: '',
-        role: role,
+        role: finalRole,
         createdAt: new Date().toISOString(),
       };
       

@@ -3,12 +3,13 @@ import { db } from '../../firebase';
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { AppUser, DocumentSubmission } from '../../types';
 import { Search, MoreHorizontal, User, Mail, Hash, BookOpen, Layers, X, Save, Trash2, FileText, Eye } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, handleFirestoreError, OperationType } from '../../lib/utils';
 import { BatchService, BatchGroup } from '../../services/BatchService';
 import { UserService } from '../../services/UserService';
 import { DocumentService } from '../../services/DocumentService';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'motion/react';
+import FeedbackModal from '../ui/FeedbackModal';
 
 export default function AdminRecords() {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export default function AdminRecords() {
   });
 
   const [isLoadingBulk, setIsLoadingBulk] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
 
   const toggleStudentSelection = (uid: string) => {
     setSelectedStudents(prev => 
@@ -50,14 +52,17 @@ export default function AdminRecords() {
     setLoading(true);
     const q = query(collection(db, 'users'), where('role', '==', 'STUDENT'));
     
-    return onSnapshot(q, async (snap) => {
-      const studentsData = snap.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
-      setStudents(studentsData);
-      
-      const bData = await BatchService.getAllBatches();
-      setBatches(bData);
-      setLoading(false);
-    });
+    return onSnapshot(q, 
+      async (snap) => {
+        const studentsData = snap.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
+        setStudents(studentsData);
+        
+        const bData = await BatchService.getAllBatches();
+        setBatches(bData);
+        setLoading(false);
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'users')
+    );
   };
 
   useEffect(() => {
@@ -79,44 +84,67 @@ export default function AdminRecords() {
   }, [students, searchTerm, filterStatus]);
 
   const handleBatchUpdate = async (update: object) => {
-    if (confirm(`Are you sure you want to update these ${selectedStudents.length} students?`)) {
-      setIsLoadingBulk(true);
-      try {
-        await Promise.all(selectedStudents.map(uid => updateDoc(doc(db, 'users', uid), update)));
-        setSelectedStudents([]);
-      } catch (err) {
-        console.error(err);
-        alert('Failed to update student statuses.');
-      } finally {
-        setIsLoadingBulk(false);
-      }
-    }
+    setFeedback({
+      title: 'Update Students',
+      message: `Are you sure you want to update these ${selectedStudents.length} students?`,
+      type: 'confirm',
+      onConfirm: async () => {
+        setFeedback(null);
+        setIsLoadingBulk(true);
+        try {
+          await Promise.all(selectedStudents.map(uid => updateDoc(doc(db, 'users', uid), update)));
+          setSelectedStudents([]);
+          setFeedback({ title: 'Success', message: 'Students updated successfully.', type: 'info', onClose: () => setFeedback(null) });
+        } catch (err) {
+          console.error(err);
+          setFeedback({ title: 'Error', message: 'Failed to update student statuses.', type: 'error', onClose: () => setFeedback(null) });
+        } finally {
+          setIsLoadingBulk(false);
+        }
+      },
+      onCancel: () => setFeedback(null)
+    });
   };
 
   const handleDeactivate = async (uid: string, currentStatus: boolean = true) => {
     const action = currentStatus ? 'deactivate' : 'reactivate';
-    if (confirm(`Are you sure you want to ${action} this student account?`)) {
-      try {
-        await updateDoc(doc(db, 'users', uid), { isActive: !currentStatus });
-        alert(`Student account ${currentStatus ? 'deactivated' : 'reactivated'}.`);
-      } catch (error) {
-        console.error('Error updating student status:', error);
-        alert('Failed to update student record.');
-      }
-    }
+    setFeedback({
+      title: 'Update Status',
+      message: `Are you sure you want to ${action} this student account?`,
+      type: 'confirm',
+      onConfirm: async () => {
+        setFeedback(null);
+        try {
+          await updateDoc(doc(db, 'users', uid), { isActive: !currentStatus });
+          setFeedback({ title: 'Success', message: `Student account ${currentStatus ? 'deactivated' : 'reactivated'}.`, type: 'info', onClose: () => setFeedback(null) });
+        } catch (error) {
+          console.error('Error updating student status:', error);
+          setFeedback({ title: 'Error', message: 'Failed to update student record.', type: 'error', onClose: () => setFeedback(null) });
+        }
+      },
+      onCancel: () => setFeedback(null)
+    });
   };
 
   const handleDelete = async (uid: string) => {
     if (!user) return;
-    if (!confirm('PERMANENTLY DELETE this student record? This action is irreversible.')) return;
-    try {
-      await UserService.deleteUser(uid, user.uid);
-      setStudents(students.filter(s => s.uid !== uid));
-      alert('Student record deleted successfully.');
-    } catch (e) {
-      console.error(e);
-      alert('Failed to delete student record.');
-    }
+    setFeedback({
+      title: 'Delete Student',
+      message: 'PERMANENTLY DELETE this student record? This action is irreversible.',
+      type: 'confirm',
+      onConfirm: async () => {
+        setFeedback(null);
+        try {
+          await UserService.deleteUser(uid, user.uid);
+          setStudents(students.filter(s => s.uid !== uid));
+          setFeedback({ title: 'Success', message: 'Student record deleted successfully.', type: 'info', onClose: () => setFeedback(null) });
+        } catch (e) {
+          console.error(e);
+          setFeedback({ title: 'Error', message: 'Failed to delete student record.', type: 'error', onClose: () => setFeedback(null) });
+        }
+      },
+      onCancel: () => setFeedback(null)
+    });
   };
 
   const startEdit = (student: AppUser) => {
@@ -139,10 +167,10 @@ export default function AdminRecords() {
       });
       setEditingStudent(null);
       fetchStudents();
-      alert('Student record updated successfully.');
+      setFeedback({ title: 'Success', message: 'Student record updated successfully.', type: 'info', onClose: () => setFeedback(null) });
     } catch (e) {
       console.error(e);
-      alert('Failed to update student.');
+      setFeedback({ title: 'Error', message: 'Failed to update student.', type: 'error', onClose: () => setFeedback(null) });
     }
   };
 
@@ -153,7 +181,7 @@ export default function AdminRecords() {
       setViewingDocs({ student, docs });
     } catch (e) {
       console.error(e);
-      alert('Failed to fetch student documents');
+      setFeedback({ title: 'Error', message: 'Failed to fetch student documents', type: 'error', onClose: () => setFeedback(null) });
     } finally {
       setLoadingDocs(false);
     }
@@ -238,7 +266,7 @@ export default function AdminRecords() {
                         handleBatchUpdate({ batch: selectedBatch });
                         setShowBatchAssign(false);
                      } else {
-                       alert('Please select a batch.');
+                       setFeedback({ title: 'Missing Batch', message: 'Please select a batch to assign.', type: 'alert', onClose: () => setFeedback(null) });
                      }
                    }} 
                    className="flex-1 px-4 py-3 bg-[#1a237e] rounded-xl text-white font-bold text-[10px] uppercase tracking-widest hover:bg-[#1a237e]/90"
@@ -446,7 +474,7 @@ export default function AdminRecords() {
                              )}
                            </div>
                            <div>
-                             <p className="text-[13px] font-black text-[#0d1b2a] uppercase tracking-tight">{doc.type.replace('_', ' ')}</p>
+                             <p className="text-[13px] font-black text-[#0d1b2a] uppercase tracking-tight">{doc.type?.replace?.('_', ' ') || doc.type}</p>
                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{doc.fileName}</p>
                            </div>
                          </div>
@@ -483,6 +511,7 @@ export default function AdminRecords() {
            </div>
          )}
        </AnimatePresence>
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

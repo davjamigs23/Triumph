@@ -8,6 +8,7 @@ import {
   Clock,
   Briefcase
 } from 'lucide-react';
+import { handleFirestoreError, OperationType } from '../../lib/utils';
 import { 
   BarChart, 
   Bar, 
@@ -83,6 +84,7 @@ export default function AdminDashboard({ activeTab, setActiveTab }: { activeTab:
         setLogs(logsSnap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLogEntry)));
       } catch (err) {
         console.error('Error fetching admin data:', err);
+        handleFirestoreError(err, OperationType.LIST, 'admin_agg_dashboard');
       } finally {
         setLoading(false);
       }
@@ -97,7 +99,7 @@ export default function AdminDashboard({ activeTab, setActiveTab }: { activeTab:
         <div className="p-4 bg-muted rounded-full">
           <Clock className="h-12 w-12 text-[#1a237e] opacity-20" />
         </div>
-        <h3 className="text-2xl font-bold tracking-tight uppercase">{activeTab.replace('-', ' ')}</h3>
+        <h3 className="text-2xl font-bold tracking-tight uppercase">{activeTab?.replace?.('-', ' ') || activeTab}</h3>
         <p className="text-muted-foreground max-sm">Module active but currently empty. Start inputting data to see results.</p>
       </div>
     );

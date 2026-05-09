@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, onSnapshot, getDocs, where } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileUp, 
@@ -47,9 +48,12 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
 
     // Subscriber for students (real-time)
     const userQuery = query(collection(db, 'users'), where('role', '==', 'STUDENT'));
-    const unsubStudents = onSnapshot(userQuery, (snap) => {
-      setStudents(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
-    });
+    const unsubStudents = onSnapshot(userQuery, 
+      (snap) => {
+        setStudents(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'users')
+    );
     
     return () => {
       unsubSubmissions();
@@ -75,7 +79,7 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
       }
       
       const notificationTitle = status === 'REJECTED' ? 'Document Rejected' : (user.role === 'FINANCE' ? 'Receipt Verified' : 'Document Approved');
-      const notificationBody = `Your ${reviewing.type.replace('_', ' ')} has been ${status.toLowerCase()}.${status === 'REJECTED' ? ` Reason: ${rejectionReason}` : ''}`;
+      const notificationBody = `Your ${reviewing.type?.replace?.('_', ' ') || 'document'} has been ${status.toLowerCase()}.${status === 'REJECTED' ? ` Reason: ${rejectionReason}` : ''}`;
 
       await NotificationService.sendNotification(
         reviewing.studentId, 
@@ -193,7 +197,7 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
                   </td>
                   <td className="px-8 py-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[11px] w-fit font-bold uppercase tracking-tight text-[#1a237e] bg-[#1a237e]/5 px-2 py-0.5 rounded">{sub.type.replace('_', ' ')}</span>
+                      <span className="text-[11px] w-fit font-bold uppercase tracking-tight text-[#1a237e] bg-[#1a237e]/5 px-2 py-0.5 rounded">{sub.type?.replace?.('_', ' ') || sub.type}</span>
                       {sub.type === 'RECEIPT' && sub.financeStatus && (
                         <span className={cn(
                           "text-[9px] font-black uppercase px-2 py-0.5 rounded w-fit",

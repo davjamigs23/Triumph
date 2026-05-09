@@ -13,12 +13,14 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion } from 'motion/react';
+import FeedbackModal from '../ui/FeedbackModal';
 
 export default function MyDocuments() {
   const { user } = useAuth();
   const [docs, setDocs] = useState<DocumentSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<any>(null);
 
   const fetchData = async () => {
     if (!user) return;
@@ -43,13 +45,13 @@ export default function MyDocuments() {
     // File Type Validation
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
     if (!allowedTypes.includes(file.type)) {
-      alert('Unsupported file format. Please upload PDF, JPG, or PNG files only.');
+      setFeedback({ title: 'Invalid Format', message: 'Unsupported file format. Please upload PDF, JPG, or PNG files only.', type: 'error', onClose: () => setFeedback(null) });
       return;
     }
 
     // File Size Validation (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size exceeds the 5MB limit. Please compress or resize it before uploading.');
+      setFeedback({ title: 'File Too Large', message: 'File size exceeds the 5MB limit. Please compress or resize it before uploading.', type: 'error', onClose: () => setFeedback(null) });
       return;
     }
 
@@ -65,10 +67,10 @@ export default function MyDocuments() {
 
       await DocumentService.submitDocument(user.uid, type, file.name, fileUrl);
       await fetchData();
-      alert('Document successfully submitted — Your requirement has been uploaded and is now pending staff review.');
+      setFeedback({ title: 'Success', message: 'Document successfully submitted — Your requirement has been uploaded and is now pending staff review.', type: 'info', onClose: () => setFeedback(null) });
     } catch (err) {
       console.error(err);
-      alert('Upload failed. Something went wrong while uploading your file. Check your connection and try again.');
+      setFeedback({ title: 'Error', message: 'Upload failed. Something went wrong while uploading your file. Check your connection and try again.', type: 'error', onClose: () => setFeedback(null) });
     } finally {
       setUploading(null);
     }
@@ -106,7 +108,7 @@ export default function MyDocuments() {
               </div>
 
               <h3 className="text-[13px] font-black uppercase tracking-wider text-[#0d1b2a] mb-1">
-                {type.replace('_', ' ')}
+                {type?.replace?.('_', ' ') || type}
               </h3>
               <p className="text-[11px] text-gray-500 font-medium mb-6 leading-relaxed">
                 {type === 'CLEARANCE' ? 'University clearance form signed by all departments.' : 
@@ -162,6 +164,7 @@ export default function MyDocuments() {
           </p>
         </div>
       </div>
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { ChatbotService } from '../../services/ChatbotService';
 import { Send, User, Bot, Loader2, MessageSquare, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import FeedbackModal from '../ui/FeedbackModal';
 
 interface Message {
   id: string;
@@ -43,6 +44,7 @@ export default function FAQChat() {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -87,18 +89,25 @@ export default function FAQChat() {
   };
 
   const handleClearChat = () => {
-    if (confirm('Clear chat history?')) {
-      const key = user?.uid ? `triumph_chat_history_${user.uid}` : 'triumph_chat_history_guest';
-      localStorage.removeItem(key);
-      setMessages([
-        {
-          id: '1',
-          text: "Hello! I'm the Triumph Assistant. How can I help you with your yearbook requirements today?",
-          sender: 'bot',
-          timestamp: new Date()
-        }
-      ]);
-    }
+    setFeedback({
+      title: 'Clear Chat',
+      message: 'Are you sure you want to clear your chat history?',
+      type: 'confirm',
+      onConfirm: () => {
+        setFeedback(null);
+        const key = user?.uid ? `triumph_chat_history_${user.uid}` : 'triumph_chat_history_guest';
+        localStorage.removeItem(key);
+        setMessages([
+          {
+            id: '1',
+            text: "Hello! I'm the Triumph Assistant. How can I help you with your yearbook requirements today?",
+            sender: 'bot',
+            timestamp: new Date()
+          }
+        ]);
+      },
+      onCancel: () => setFeedback(null)
+    });
   };
 
   return (
@@ -208,6 +217,7 @@ export default function FAQChat() {
           </button>
         </div>
       </form>
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

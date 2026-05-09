@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { BatchService, BatchGroup } from '../../services/BatchService';
 import { Layers, Plus, Users, Search, X, Trash2, CheckSquare, Square } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, handleFirestoreError, OperationType } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
 import { AppUser } from '../../types';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -19,16 +19,23 @@ export default function AdminBatches() {
   const [isSelecting, setIsSelecting] = useState(false);
   const [viewingBatch, setViewingBatch] = useState<BatchGroup | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ids: string[]} | null>(null);
+  const [feedback, setFeedback] = useState<any>(null);
 
   useEffect(() => {
-    const unsubBatches = onSnapshot(collection(db, 'batches'), (snap) => {
-      setBatches(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BatchGroup)));
-    });
+    const unsubBatches = onSnapshot(collection(db, 'batches'), 
+      (snap) => {
+        setBatches(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BatchGroup)));
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'batches')
+    );
 
-    const unsubStudents = onSnapshot(query(collection(db, 'users'), where('role', '==', 'STUDENT')), (snap) => {
-      setStudents(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
-      setLoading(false);
-    });
+    const unsubStudents = onSnapshot(query(collection(db, 'users'), where('role', '==', 'STUDENT')), 
+      (snap) => {
+        setStudents(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
+        setLoading(false);
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'users')
+    );
 
     return () => {
       unsubBatches();
@@ -59,9 +66,10 @@ export default function AdminBatches() {
       );
       setIsAdding(false);
       setNewBatch({ name: '', course: '', section: '', yearLevel: '' });
+      setFeedback({ title: 'Success', message: 'Batch successfully created!', type: 'info', onClose: () => setFeedback(null) });
     } catch (err) {
       console.error(err);
-      alert('Failed to create batch');
+      setFeedback({ title: 'Error', message: 'Failed to create batch', type: 'error', onClose: () => setFeedback(null) });
     }
   };
 
@@ -71,10 +79,11 @@ export default function AdminBatches() {
       await Promise.all(ids.map(id => BatchService.deleteBatch(id, user.uid)));
       setSelectedBatches([]);
       setConfirmDelete(null);
+      setFeedback({ title: 'Success', message: 'Batch(es) deleted successfully.', type: 'info', onClose: () => setFeedback(null) });
     } catch (e) {
       console.error(e);
-      setConfirmDelete({ ids: [] }); // Need a better way to show error. Or just use a separate error state.
-      // Actually, I should probably add an error state.
+      setFeedback({ title: 'Error', message: 'Failed to delete batch(es)', type: 'error', onClose: () => setFeedback(null) });
+      setConfirmDelete(null);
     }
   };
 
@@ -276,6 +285,7 @@ export default function AdminBatches() {
            </div>
         </div>
       )}
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

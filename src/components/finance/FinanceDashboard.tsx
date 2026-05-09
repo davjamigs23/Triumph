@@ -13,7 +13,7 @@ import {
   FileSearch
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../../lib/utils';
+import { cn, handleFirestoreError, OperationType } from '../../lib/utils';
 import { db } from '../../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import DocumentVerification from '../admin/DocumentVerification';
@@ -49,17 +49,20 @@ export default function FinanceDashboard() {
   useEffect(() => {
     // Real-time stats sync
     const q = query(collection(db, 'documents'), where('type', '==', 'RECEIPT'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => d.data());
-      const pending = docs.filter(d => d.status === 'PENDING' && d.financeStatus !== 'VERIFIED').length;
-      const verified = docs.filter(d => d.financeStatus === 'VERIFIED').length;
-      
-      setStats({
-        pendingReceipts: pending,
-        verifiedToday: docs.filter(d => d.financeVerifiedAt?.startsWith(new Date().toISOString().split('T')[0])).length,
-        totalVerified: verified
-      });
-    });
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const docs = snapshot.docs.map(d => d.data());
+        const pending = docs.filter(d => d.status === 'PENDING' && d.financeStatus !== 'VERIFIED').length;
+        const verified = docs.filter(d => d.financeStatus === 'VERIFIED').length;
+        
+        setStats({
+          pendingReceipts: pending,
+          verifiedToday: docs.filter(d => d.financeVerifiedAt?.startsWith(new Date().toISOString().split('T')[0])).length,
+          totalVerified: verified
+        });
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'documents')
+    );
 
     return () => unsubscribe();
   }, []);
@@ -120,7 +123,7 @@ export default function FinanceDashboard() {
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-gray-100 rounded-xl text-[#0d1b2a]">
               <Menu className="h-6 w-6" />
             </button>
-            <h2 className="text-lg font-black text-[#0d1b2a] uppercase tracking-tight">{activeTab.replace('-', ' ')}</h2>
+            <h2 className="text-lg font-black text-[#0d1b2a] uppercase tracking-tight">{activeTab?.replace?.('-', ' ') || activeTab}</h2>
           </div>
           
           <div className="flex items-center gap-6">

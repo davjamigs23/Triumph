@@ -10,12 +10,15 @@ import { updateProfile } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../../firebase';
 
+import FeedbackModal from '../ui/FeedbackModal';
+
 export default function MyProfile() {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
   const [quote, setQuote] = useState(user?.quote || '');
   const [isUploading, setIsUploading] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) return null;
@@ -34,10 +37,10 @@ export default function MyProfile() {
       }
       // Update firestore if needed
       await updateDoc(doc(db, 'users', user.uid), { photoURL });
-      alert('Profile photo updated successfully!');
+      setFeedback({ title: 'Success', message: 'Profile photo updated successfully!', type: 'info', onClose: () => setFeedback(null) });
     } catch (error) {
       console.error(error);
-      alert('Failed to update profile photo.');
+      setFeedback({ title: 'Error', message: 'Failed to update profile photo.', type: 'error', onClose: () => setFeedback(null) });
     } finally {
       setIsUploading(false);
     }
@@ -49,10 +52,10 @@ export default function MyProfile() {
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { quote });
       setIsMetaModalOpen(false);
-      alert('Yearbook quote updated successfully!');
+      setFeedback({ title: 'Success', message: 'Yearbook quote updated successfully!', type: 'info', onClose: () => setFeedback(null) });
     } catch (error) {
       console.error(error);
-      alert('Failed to update quote.');
+      setFeedback({ title: 'Error', message: 'Failed to update quote.', type: 'error', onClose: () => setFeedback(null) });
     }
   };
 
@@ -69,10 +72,10 @@ export default function MyProfile() {
       await updateDoc(userRef, editedValues);
       setIsEditing(false);
       setEditedValues({});
-      alert('Profile updated successfully!');
+      setFeedback({ title: 'Success', message: 'Profile updated successfully!', type: 'info', onClose: () => setFeedback(null) });
     } catch (error) {
       console.error(error);
-      alert('Failed to update profile.');
+      setFeedback({ title: 'Error', message: 'Failed to update profile.', type: 'error', onClose: () => setFeedback(null) });
     }
   };
 
@@ -220,6 +223,7 @@ export default function MyProfile() {
           </div>
         )}
       </AnimatePresence>
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

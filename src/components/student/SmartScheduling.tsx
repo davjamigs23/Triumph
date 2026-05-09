@@ -16,6 +16,7 @@ import { ScheduleService } from '../../services/ScheduleService';
 import { NotificationService } from '../../services/NotificationService';
 import { BookingSession } from '../../types';
 import { cn } from '../../lib/utils';
+import FeedbackModal from '../ui/FeedbackModal';
 
 export default function SmartScheduling() {
   const { user } = useAuth();
@@ -26,6 +27,7 @@ export default function SmartScheduling() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
 
   const fetchCurrentBooking = async () => {
     if (!user) return;
@@ -61,8 +63,9 @@ export default function SmartScheduling() {
       await NotificationService.sendNotification(user.uid, 'Session Booked', `You have successfully booked your session for ${selectedDate} at ${slot}`, 'reminder');
       setIsBookingOpen(false);
       await fetchCurrentBooking();
+      setFeedback({ title: 'Success', message: 'Session successfully booked!', type: 'info', onClose: () => setFeedback(null) });
     } catch (err: any) {
-      alert(err.message);
+      setFeedback({ title: 'Booking Error', message: err.message, type: 'error', onClose: () => setFeedback(null) });
     } finally {
       setBookingLoading(false);
     }
@@ -81,9 +84,9 @@ export default function SmartScheduling() {
       await NotificationService.sendNotification(user.uid, 'Session Cancelled', `Your session for ${currentBooking.date} has been cancelled.`, 'status_change');
       await fetchCurrentBooking();
       setIsCancelConfirmOpen(false);
-      alert('Appointment cancelled — Your slot has been released. You can book a new one anytime.');
+      setFeedback({ title: 'Cancelled', message: 'Appointment cancelled — Your slot has been released. You can book a new one anytime.', type: 'info', onClose: () => setFeedback(null) });
     } catch (err: any) {
-      alert(err.message || 'Failed to cancel session.');
+      setFeedback({ title: 'Error', message: err.message || 'Failed to cancel session.', type: 'error', onClose: () => setFeedback(null) });
       setIsCancelConfirmOpen(false);
     }
   };
@@ -473,6 +476,7 @@ export default function SmartScheduling() {
           </div>
         )}
       </AnimatePresence>
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

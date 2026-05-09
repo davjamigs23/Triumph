@@ -13,7 +13,7 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    function isVerified() {
+    function isEmailVerified() {
       return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
     }
     
@@ -21,21 +21,27 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Super Admin check (Developer accounts)
     function isSuperAdmin() {
-      return isSignedIn() && request.auth.token.email == 'djignaci1@gmail.com';
+      return isSignedIn() && (
+        request.auth.token.email == 'djignaci1@gmail.com' || 
+        request.auth.token.email == 'djignaci2@gmail.com' ||
+        request.auth.uid == 'VXMyDQ6fQCXwj2oEaw6IK0lsCOE3'
+      );
     }
 
-    function isRole(role) {
+    // Role check from the users collection
+    function hasRole(role) {
       return isSignedIn() && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'STUDENT') == role;
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
 
     function isAdmin() {
-      return isSuperAdmin() || isRole('ADMIN');
+      return isSuperAdmin() || hasRole('ADMIN');
     }
 
     function isFinance() {
-      return isRole('FINANCE');
+      return isSuperAdmin() || hasRole('FINANCE') || hasRole('ADMIN');
     }
 
     function isValidId(id) {
@@ -50,30 +56,44 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // Validation Hepers
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string && data.uid.size() <= 64 &&
+             data.email is string && data.email.size() <= 255 &&
+             data.role in ['STUDENT', 'ADMIN', 'PHOTOGRAPHER', 'LAYOUT', 'FINANCE'];
+    }
+
+    function isValidDocument(data) {
+      return data.keys().hasAll(['studentId', 'type', 'status']) &&
+             data.studentId is string && data.studentId.size() <= 64 &&
+             data.type in ['CLEARANCE', 'PAYMENT_PROOF', 'BIRTH_CERTIFICATE', 'RECEIPT', 'OTHER'] &&
+             data.status in ['PENDING', 'APPROVED', 'REJECTED'];
+    }
+
     // --- Match Rules ---
 
     // Users collection
     match /users/{userId} {
-      allow get: if isSignedIn(); 
+      allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if (isOwner(userId) && incoming().role == existing().role) || isAdmin();
       allow delete: if isAdmin();
     }
 
     // Documents
     match /documents/{docId} {
-      allow read: if isAdmin() || (isFinance() && (existing().type == 'RECEIPT' || existing().type == 'PAYMENT')) || isOwner(existing().studentId);
-      allow create: if isSignedIn() && incoming().studentId == request.auth.uid;
-      allow update: if isAdmin() || (isFinance() && existing().type == 'RECEIPT') || isOwner(existing().studentId);
-      allow list: if isAdmin() || (isFinance() && (resource.data.type == 'RECEIPT' || resource.data.type == 'PAYMENT')) || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow read: if isAdmin() || isFinance() || isOwner(existing().studentId);
+      allow create: if isSignedIn() && incoming().studentId == request.auth.uid && isValidDocument(incoming());
+      allow update: if isAdmin() || isFinance() || (isOwner(existing().studentId) && incoming().status == existing().status);
+      allow list: if isAdmin() || isFinance() || (isSignedIn() && resource.data.studentId == request.auth.uid);
       allow delete: if isAdmin();
     }
 
     // Appointments (Photo Sessions)
     match /appointments/{apptId} {
-      allow read: if isSignedIn();
-      allow list: if isSignedIn();
+      allow read, list: if isSignedIn();
       allow create: if isSignedIn() && incoming().studentId == request.auth.uid;
       allow update: if isAdmin() || isOwner(existing().studentId);
       allow delete: if isAdmin() || isOwner(existing().studentId);
@@ -81,21 +101,21 @@ service cloud.firestore {
 
     // Announcements
     match /announcements/{id} {
-      allow read: if isSignedIn();
+      allow read, list: if isSignedIn();
       allow write: if isAdmin();
     }
 
     // Notifications
     match /notifications/{notifId} {
-      allow read, update, delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
-      // System sends notifications (client can addDoc for demo purposes if needed, though usually server-side)
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
       allow create: if isSignedIn(); 
+      allow update, delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Batches
     match /batches/{batchId} {
-      allow read: if isSignedIn();
+      allow read, list: if isSignedIn();
       allow write: if isAdmin();
     }
 

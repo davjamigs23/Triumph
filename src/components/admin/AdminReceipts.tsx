@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { db, storage } from '../../firebase';
-import { collection, query, getDocs, orderBy, limit, addDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit, addDoc, onSnapshot, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FileText, Search, CreditCard, DollarSign, Download, Plus, X, Upload, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { cn } from '../../lib/utils';
+import { cn, handleFirestoreError, OperationType } from '../../lib/utils';
 import { AuditService } from '../../services/AuditService';
 import { ReceiptService, Receipt } from '../../services/ReceiptService';
+import FeedbackModal from '../ui/FeedbackModal';
+
+interface ExtendedReceipt extends Receipt {
+  source: 'MANUAL' | 'SUBMISSION';
+}
 
 export default function AdminReceipts() {
   const { user } = useAuth();
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [receipts, setReceipts] = useState<ExtendedReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [filterStatus, setFilterStatus] = useState('ALL');
@@ -18,6 +23,7 @@ export default function AdminReceipts() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<any>(null);
 
 
   const handleUpdateStatus = async (id: string, newStatus: 'PAID' | 'PENDING' | 'REJECTED') => {
@@ -27,39 +33,63 @@ export default function AdminReceipts() {
       setReceipts(receipts.map(r => r.id === id ? { ...r, status: newStatus } : r));
     } catch (e) {
       console.error(e);
-      alert('Failed to update status');
+      setFeedback({ title: 'Error', message: 'Failed to update status', type: 'error', onClose: () => setFeedback(null) });
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!user) return;
-    if (!confirm('Permanently delete this receipt record?')) return;
-    try {
-      await ReceiptService.deleteReceipt(id, user.uid);
-      setReceipts(receipts.filter(r => r.id !== id));
-      alert('Receipt deleted.');
-    } catch (e) {
-      console.error(e);
-      alert('Failed to delete receipt');
-    }
+    setFeedback({
+      title: 'Delete Receipt',
+      message: 'Permanently delete this receipt record?',
+      type: 'confirm',
+      onConfirm: async () => {
+        setFeedback(null);
+        try {
+          await ReceiptService.deleteReceipt(id, user.uid);
+          setReceipts(receipts.filter(r => r.id !== id));
+          setFeedback({ title: 'Success', message: 'Receipt deleted.', type: 'info', onClose: () => setFeedback(null) });
+        } catch (e) {
+          console.error(e);
+          setFeedback({ title: 'Error', message: 'Failed to delete receipt', type: 'error', onClose: () => setFeedback(null) });
+        }
+      },
+      onCancel: () => setFeedback(null)
+    });
   };
 
   useEffect(() => {
     // Subscriber for manual receipts
     const qReceipts = query(collection(db, 'receipts'), orderBy('date', 'desc'));
-    const unsubReceipts = onSnapshot(qReceipts, (snap) => {
-      const manualReceipts = snap.docs.map(doc => ({ id: doc.id, source: 'MANUAL', ...doc.data() } as Receipt));
-      setReceipts(prev => mergeReceipts(manualReceipts, prev.filter(r => r.source === 'SUBMISSION')));
-      setLoading(false);
-    });
+    const unsubReceipts = onSnapshot(qReceipts, 
+      (snap) => {
+        const manualReceipts = snap.docs.map(doc => ({ id: doc.id, source: 'MANUAL', ...doc.data() } as ExtendedReceipt));
+        setReceipts(prev => mergeReceipts(manualReceipts, prev.filter(r => r.source === 'SUBMISSION')));
+        setLoading(false);
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'receipts')
+    );
 
     // Subscriber for student-submitted receipts
     const qDocs = query(collection(db, 'documents'), where('type', '==', 'RECEIPT'));
-    const unsubDocs = onSnapshot(qDocs, (snap) => {
-      const submissionReceipts = snap.docs.map(doc => ({ id: doc.id, source: 'SUBMISSION', ...doc.data(), referenceNo: doc.data().fileName, studentId: doc.data().studentId, date: doc.data().submittedAt, status: doc.data().status === 'APPROVED' ? 'PAID' : (doc.data().status === 'REJECTED' ? 'REJECTED' : 'PENDING') } as unknown as Receipt));
-      setReceipts(prev => mergeReceipts(prev.filter(r => r.source === 'MANUAL'), submissionReceipts));
-      setLoading(false);
-    });
+    const unsubDocs = onSnapshot(qDocs, 
+      (snap) => {
+        const submissionReceipts = snap.docs.map(doc => ({ 
+          id: doc.id, 
+          source: 'SUBMISSION', 
+          ...doc.data(), 
+          referenceNo: (doc.data() as any).fileName, 
+          studentId: (doc.data() as any).studentId, 
+          date: (doc.data() as any).submittedAt, 
+          status: (doc.data() as any).status === 'APPROVED' ? 'PAID' : ((doc.data() as any).status === 'REJECTED' ? 'REJECTED' : 'PENDING'),
+          purpose: 'YEARBOOK_FEE', // Default purpose for submissions
+          imageUrl: (doc.data() as any).fileUrl
+        } as ExtendedReceipt));
+        setReceipts(prev => mergeReceipts(prev.filter(r => r.source === 'MANUAL'), submissionReceipts));
+        setLoading(false);
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'documents')
+    );
 
     return () => {
       unsubReceipts();
@@ -67,7 +97,7 @@ export default function AdminReceipts() {
     };
   }, [filterStatus]);
 
-  const mergeReceipts = (manual: Receipt[], submissions: Receipt[]) => {
+  const mergeReceipts = (manual: ExtendedReceipt[], submissions: ExtendedReceipt[]) => {
     const all = [...manual, ...submissions];
     if (filterStatus !== 'ALL') {
       return all.filter(r => r.status === filterStatus);
@@ -159,7 +189,7 @@ export default function AdminReceipts() {
               <tr key={r.id} className="hover:bg-gray-50/50 transition-colors text-sm group">
                 <td className="px-8 py-4 font-mono text-gray-400">{r.referenceNo}</td>
                 <td className="px-8 py-4 text-[#0d1b2a]">{r.studentId}</td>
-                <td className="px-8 py-4 uppercase text-[11px]">{r.purpose.replace('_', ' ')}</td>
+                <td className="px-8 py-4 uppercase text-[11px]">{r.purpose?.replace?.('_', ' ') || r.purpose}</td>
                 <td className="px-8 py-4">
                    <span className={cn(
                      "px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-widest",
@@ -303,6 +333,7 @@ export default function AdminReceipts() {
            </div>
         </div>
       )}
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }
