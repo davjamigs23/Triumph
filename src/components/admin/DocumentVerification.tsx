@@ -19,6 +19,7 @@ import { DocumentService } from '../../services/DocumentService';
 import { NotificationService } from '../../services/NotificationService';
 import { DocumentSubmission, AppUser } from '../../types';
 import { cn } from '../../lib/utils';
+import FeedbackModal from '../ui/FeedbackModal';
 
 export default function DocumentVerification({ filterType }: { filterType?: 'CLEARANCE' | 'RECEIPT' }) {
   const { user } = useAuth();
@@ -30,6 +31,7 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
   const [rejectionReason, setRejectionReason] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
 
   useEffect(() => {
     // Subscriber for submissions
@@ -57,7 +59,10 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
 
   const handleReview = async (status: 'APPROVED' | 'REJECTED' | 'VERIFIED') => {
     if (!reviewing || !user) return;
-    if (status === 'REJECTED' && !rejectionReason) return alert('Please provide a reason for rejection.');
+    if (status === 'REJECTED' && !rejectionReason) {
+      setFeedback({ title: 'Missing Info', message: 'Please provide a reason for rejection.', type: 'alert', onClose: () => setFeedback(null) });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -82,7 +87,7 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
       setRejectionReason('');
     } catch (err: any) {
       console.error(err);
-      alert(`Error: ${err.message || 'Failed to review document'}`);
+      setFeedback({ title: 'Error', message: `Error: ${err.message || 'Failed to review document'}`, type: 'error', onClose: () => setFeedback(null) });
     } finally {
       setIsSubmitting(false);
     }
@@ -90,15 +95,23 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
 
   const handleDelete = async (id: string) => {
     if (!user) return;
-    if (!confirm('PERMANENTLY DELETE this document submission? This cannot be undone.')) return;
-    try {
-      await DocumentService.deleteSubmission(id, user.uid);
-      setSubmissions(submissions.filter(s => s.id !== id));
-      alert('Document submission deleted.');
-    } catch (e) {
-      console.error(e);
-      alert('Failed to delete document');
-    }
+    setFeedback({
+      title: 'Delete Document',
+      message: 'PERMANENTLY DELETE this document submission? This cannot be undone.',
+      type: 'confirm',
+      onConfirm: async () => {
+        setFeedback(null);
+        try {
+          await DocumentService.deleteSubmission(id, user.uid);
+          setSubmissions(submissions.filter(s => s.id !== id));
+          setFeedback({ title: 'Success', message: 'Document submission deleted.', type: 'info', onClose: () => setFeedback(null) });
+        } catch (e) {
+          console.error(e);
+          setFeedback({ title: 'Error', message: 'Failed to delete document', type: 'error', onClose: () => setFeedback(null) });
+        }
+      },
+      onCancel: () => setFeedback(null)
+    });
   };
 
   const filtered = submissions.filter(s => 
@@ -249,7 +262,7 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setReviewing(null)}
-               className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+               className="absolute inset-0 bg-black/60 backdrop-blur-sm"                
             />
             <motion.div 
                initial={{ scale: 0.95, opacity: 0 }}
@@ -321,6 +334,7 @@ export default function DocumentVerification({ filterType }: { filterType?: 'CLE
           </div>
         )}
       </AnimatePresence>
+      {feedback && <FeedbackModal {...feedback} />}
     </div>
   );
 }

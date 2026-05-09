@@ -45,17 +45,35 @@ export default function AdminReceipts() {
   };
 
   useEffect(() => {
-    const q = query(collection(db, 'receipts'), orderBy('date', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      let data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Receipt));
-      if (filterStatus !== 'ALL') {
-        data = data.filter(r => r.status === filterStatus);
-      }
-      setReceipts(data);
+    // Subscriber for manual receipts
+    const qReceipts = query(collection(db, 'receipts'), orderBy('date', 'desc'));
+    const unsubReceipts = onSnapshot(qReceipts, (snap) => {
+      const manualReceipts = snap.docs.map(doc => ({ id: doc.id, source: 'MANUAL', ...doc.data() } as Receipt));
+      setReceipts(prev => mergeReceipts(manualReceipts, prev.filter(r => r.source === 'SUBMISSION')));
       setLoading(false);
     });
-    return () => unsub();
+
+    // Subscriber for student-submitted receipts
+    const qDocs = query(collection(db, 'documents'), where('type', '==', 'RECEIPT'));
+    const unsubDocs = onSnapshot(qDocs, (snap) => {
+      const submissionReceipts = snap.docs.map(doc => ({ id: doc.id, source: 'SUBMISSION', ...doc.data(), referenceNo: doc.data().fileName, studentId: doc.data().studentId, date: doc.data().submittedAt, status: doc.data().status === 'APPROVED' ? 'PAID' : (doc.data().status === 'REJECTED' ? 'REJECTED' : 'PENDING') } as unknown as Receipt));
+      setReceipts(prev => mergeReceipts(prev.filter(r => r.source === 'MANUAL'), submissionReceipts));
+      setLoading(false);
+    });
+
+    return () => {
+      unsubReceipts();
+      unsubDocs();
+    };
   }, [filterStatus]);
+
+  const mergeReceipts = (manual: Receipt[], submissions: Receipt[]) => {
+    const all = [...manual, ...submissions];
+    if (filterStatus !== 'ALL') {
+      return all.filter(r => r.status === filterStatus);
+    }
+    return all;
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +88,8 @@ export default function AdminReceipts() {
         const storageRef = ref(storage, `receipts/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         imageUrl = await getDownloadURL(snapshot.ref);
+      } else {
+        throw new Error('Please select a receipt image');
       }
 
       const receiptData = {
@@ -264,7 +284,10 @@ export default function AdminReceipts() {
                       <input 
                           type="file"
                           accept="image/*"
-                          onChange={e => setFile(e.target.files?.[0] || null)}
+                          onChange={e => {
+                            console.log("File selected:", e.target.files?.[0]);
+                            setFile(e.target.files?.[0] || null);
+                          }}
                           className="hidden"
                       />
                     </label>
