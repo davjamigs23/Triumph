@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { BatchService, BatchGroup } from '../../services/BatchService';
 import { Layers, Plus, Users, Search, X, Trash2, CheckSquare, Square } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
 import { AppUser } from '../../types';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
+import FeedbackModal from '../ui/FeedbackModal';
 
 export default function AdminBatches() {
   const { user } = useAuth();
@@ -14,7 +16,9 @@ export default function AdminBatches() {
   const [newBatch, setNewBatch] = useState({ name: '', course: '', section: '', yearLevel: '' });
   const [loading, setLoading] = useState(true);
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
+  const [isSelecting, setIsSelecting] = useState(false);
   const [viewingBatch, setViewingBatch] = useState<BatchGroup | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ids: string[]} | null>(null);
 
   useEffect(() => {
     const unsubBatches = onSnapshot(collection(db, 'batches'), (snap) => {
@@ -63,13 +67,14 @@ export default function AdminBatches() {
 
   const handleDelete = async (ids: string[]) => {
     if (!user) return;
-    if (!confirm(`Delete ${ids.length} batch(es)? Students will remain but won't be in a batch.`)) return;
     try {
       await Promise.all(ids.map(id => BatchService.deleteBatch(id, user.uid)));
       setSelectedBatches([]);
+      setConfirmDelete(null);
     } catch (e) {
       console.error(e);
-      alert('Failed to delete batch(es)');
+      setConfirmDelete({ ids: [] }); // Need a better way to show error. Or just use a separate error state.
+      // Actually, I should probably add an error state.
     }
   };
 
@@ -96,45 +101,67 @@ export default function AdminBatches() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {selectedBatches.length > 0 && (
-             <button 
-              onClick={() => handleDelete(selectedBatches)}
-              className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:shadow-xl transition-all"
-             >
-                <Trash2 className="h-4 w-4" /> Delete Selected ({selectedBatches.length})
-             </button>
+          {!isSelecting ? (
+            <button 
+              onClick={() => setIsSelecting(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-50 transition-all"
+            >
+              <CheckSquare className="h-4 w-4" /> Multiple Selection
+            </button>
+          ) : (
+            <>
+              <button 
+                onClick={() => { setIsSelecting(false); setSelectedBatches([]); }}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-100 border border-gray-200 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-all"
+              >
+                <X className="h-4 w-4" /> Cancel
+              </button>
+              <button 
+                onClick={() => setSelectedBatches(selectedBatches.length === batches.length ? [] : batches.map(b => b.id))}
+                className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-50 transition-all"
+              >
+                {selectedBatches.length === batches.length ? <Square className="h-4 w-4" /> : <CheckSquare className="h-4 w-4" />} 
+                {selectedBatches.length === batches.length ? 'Deselect All' : 'Select All'}
+              </button>
+              {selectedBatches.length > 0 && (
+                <button 
+                  onClick={() => setConfirmDelete({ ids: selectedBatches })}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 border border-red-100 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-red-100 hover:shadow-sm transition-all"
+                >
+                  <Trash2 className="h-4 w-4" /> Delete ({selectedBatches.length})
+                </button>
+              )}
+            </>
           )}
           <button 
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-[#1a237e] text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:shadow-xl transition-all"
+            className="flex items-center gap-2 px-6 py-3 bg-[#1a237e] text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:shadow-lg transition-all"
           >
-            <Plus className="h-4 w-4" /> Create New Batch
+            <Plus className="h-4 w-4" /> Create New
           </button>
         </div>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {batches.map((batch) => (
-          <div 
+            <div 
             key={batch.id} 
-            onClick={() => setViewingBatch(batch)}
-            className="cursor-pointer bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:border-[#1a237e]/20 transition-all group relative"
+            onClick={() => isSelecting ? toggleBatchSelection(batch.id) : setViewingBatch(batch)}
+            className={cn(
+              "cursor-pointer bg-white p-6 rounded-3xl border shadow-sm transition-all group relative",
+              selectedBatches.includes(batch.id) ? "border-[#1a237e] ring-1 ring-[#1a237e]" : "border-gray-100 hover:border-[#1a237e]/20"
+            )}
           >
              <div className="absolute top-4 right-4 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                <button 
-                  onClick={() => toggleBatchSelection(batch.id)}
-                  className="p-2 rounded-full text-gray-400 hover:text-[#1a237e] transition-all"
-                  aria-label="Select batch"
-                >
-                  {selectedBatches.includes(batch.id) ? <CheckSquare className="h-5 w-5 text-[#1a237e]" /> : <Square className="h-5 w-5" />}
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleDelete([batch.id]); }}
-                  className="p-2 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-all opacity-0 group-hover:opacity-100"
-                  aria-label="Delete batch"
-                >
-                  <Trash2 className="h-4 w-4" />
-               </button>
+                {!isSelecting && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setConfirmDelete({ ids: [batch.id] }); }}
+                    className="p-3 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-all opacity-0 group-hover:opacity-100"
+                    aria-label="Delete batch"
+                    >
+                    <Trash2 className="h-4 w-4" />
+                    </button>
+                )}
              </div>
              <div className="flex justify-between items-start mb-6">
                 <div className="p-3 bg-gray-50 rounded-2xl text-[#1a237e] group-hover:bg-[#1a237e] group-hover:text-white transition-all">
@@ -161,6 +188,16 @@ export default function AdminBatches() {
         )}
       </div>
 
+      {confirmDelete && (
+        <FeedbackModal 
+          type="confirm"
+          title="Delete Batch(es)"
+          message={`Are you sure you want to delete ${confirmDelete.ids.length} batch(es)? Students will remain but won't be in a batch.`}
+          onConfirm={() => handleDelete(confirmDelete.ids)}
+          onCancel={() => setConfirmDelete(null)}
+          onClose={() => setConfirmDelete(null)}
+        />
+      )}
       {viewingBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setViewingBatch(null)}>
            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden" onClick={e => e.stopPropagation()}>

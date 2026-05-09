@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { AppUser, DocumentSubmission } from '../../types';
-import { Search, UserCheck, UserX, MoreHorizontal, User, Mail, Hash, BookOpen, Layers, X, Save, Trash2, FileText, Eye } from 'lucide-react';
+import { Search, MoreHorizontal, User, Mail, Hash, BookOpen, Layers, X, Save, Trash2, FileText, Eye } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { BatchService, BatchGroup } from '../../services/BatchService';
 import { UserService } from '../../services/UserService';
@@ -306,16 +306,6 @@ export default function AdminRecords() {
                           title="Edit Student"
                         >
                             <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeactivate(s.uid, s.isActive !== false)} 
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            s.isActive !== false ? "hover:bg-red-50 text-red-400" : "hover:bg-green-50 text-green-500"
-                          )} 
-                          title={s.isActive !== false ? "Deactivate Account" : "Reactivate Account"}
-                        >
-                          {s.isActive !== false ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                         </button>
                         <button 
                           onClick={() => handleDelete(s.uid)} 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, storage } from '../../firebase';
-import { collection, query, getDocs, orderBy, limit, addDoc } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit, addDoc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FileText, Search, CreditCard, DollarSign, Download, Plus, X, Upload, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,15 +19,6 @@ export default function AdminReceipts() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchReceipts = async () => {
-    setLoading(true);
-    try {
-      const data = await ReceiptService.getAllReceipts(100, filterStatus);
-      setReceipts(data);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleUpdateStatus = async (id: string, newStatus: 'PAID' | 'PENDING' | 'REJECTED') => {
     if (!user) return;
@@ -54,7 +45,16 @@ export default function AdminReceipts() {
   };
 
   useEffect(() => {
-    fetchReceipts();
+    const q = query(collection(db, 'receipts'), orderBy('date', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      let data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Receipt));
+      if (filterStatus !== 'ALL') {
+        data = data.filter(r => r.status === filterStatus);
+      }
+      setReceipts(data);
+      setLoading(false);
+    });
+    return () => unsub();
   }, [filterStatus]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -82,7 +82,6 @@ export default function AdminReceipts() {
       setIsAdding(false);
       setNewReceipt({ studentId: '', purpose: 'YEARBOOK_FEE', referenceNo: '', status: 'PENDING' });
       setFile(null);
-      fetchReceipts();
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : 'Failed to generate receipt');
@@ -252,21 +251,23 @@ export default function AdminReceipts() {
                       onChange={e => setNewReceipt({...newReceipt, status: e.target.value as any})}
                       className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold border border-gray-100"
                     >
-                       <option value="PAID">Verified (Paid)</option>
-                       <option value="PENDING">Unverified (Pending)</option>
+                       <option value="PENDING">Unverified</option>
+                       <option value="PAID">Verified</option>
                        <option value="REJECTED">Rejected</option>
                     </select>
                  </div>
                  <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Receipt Image</label>
-                    <div className="relative">
+                    <label className="flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 border border-gray-100 mt-1">
+                      <Upload className="h-4 w-4 text-gray-400" />
+                      <span className="text-xs font-bold text-gray-500 truncate">{file ? file.name : "Select Receipt Image"}</span>
                       <input 
-                        type="file"
-                        accept="image/*"
-                        onChange={e => setFile(e.target.files?.[0] || null)}
-                        className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-[#1a237e] file:text-white hover:file:bg-[#1a237e]/90 cursor-pointer"
+                          type="file"
+                          accept="image/*"
+                          onChange={e => setFile(e.target.files?.[0] || null)}
+                          className="hidden"
                       />
-                    </div>
+                    </label>
                  </div>
                  <button 
                   type="submit"

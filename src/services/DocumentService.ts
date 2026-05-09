@@ -26,6 +26,19 @@ export const DocumentService = {
     };
 
     const docRef = await addDoc(collection(db, 'documents'), submission);
+    
+    if (type === 'RECEIPT') {
+      await addDoc(collection(db, 'receipts'), {
+        studentId,
+        purpose: 'YEARBOOK_FEE', // Default purpose
+        status: 'PENDING',
+        date: new Date().toISOString(),
+        referenceNo: fileName,
+        imageUrl: fileUrl,
+        documentId: docRef.id
+      });
+    }
+
     await AuditService.log(studentId, 'SUBMIT', 'DOCUMENTS', `Submitted ${type}: ${fileName}`);
     return docRef.id;
   },
@@ -102,6 +115,17 @@ export const DocumentService = {
     if (reason) updateData.rejectionReason = reason;
 
     await updateDoc(docRef, updateData);
+    
+    // Sync with receipts
+    const receiptQuery = query(collection(db, 'receipts'), where('documentId', '==', docId));
+    const receiptSnap = await getDocs(receiptQuery);
+    receiptSnap.docs.forEach(async (d) => {
+        await updateDoc(doc(db, 'receipts', d.id), {
+            status: financeStatus === 'VERIFIED' ? 'PAID' : 'REJECTED',
+            updatedAt: new Date().toISOString()
+        });
+    });
+
     await AuditService.log(financeId, `FINANCE_${financeStatus}`, 'DOCUMENTS', `Finance reviewed doc ${docId}: ${financeStatus}`);
   },
 
@@ -115,6 +139,19 @@ export const DocumentService = {
     if (reason) updateData.rejectionReason = reason;
 
     await updateDoc(docRef, updateData);
+
+    // Sync with receipts if approved
+    if (status === 'APPROVED') {
+       const receiptQuery = query(collection(db, 'receipts'), where('documentId', '==', docId));
+       const receiptSnap = await getDocs(receiptQuery);
+       receiptSnap.docs.forEach(async (d) => {
+           await updateDoc(doc(db, 'receipts', d.id), {
+               status: 'PAID',
+               updatedAt: new Date().toISOString()
+           });
+       });
+    }
+    
     await AuditService.log(adminId, status, 'DOCUMENTS', `Reviewed doc ${docId}: ${status}${reason ? ` - ${reason}` : ''}`);
   },
 
