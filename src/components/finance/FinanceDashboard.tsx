@@ -149,13 +149,7 @@ export default function FinanceDashboard() {
           </div>
           
           <div className="flex items-center gap-6">
-            <button 
-              onClick={logout}
-              className="text-[10px] uppercase font-black hover:text-[#ef4444] transition-colors tracking-widest text-[#0d1b2a]/60 flex items-center gap-2"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
+
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-[10px] font-black uppercase text-gray-400">{user?.role}</p>
