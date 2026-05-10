@@ -69,17 +69,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDoc = await getDoc(userDocRef);
       
       if (!userDoc.exists()) {
-        const isSuperAdmin = result.user.email === 'djignaci1@gmail.com' || result.user.email === 'djignaci2@gmail.com';
-        const newUser: AppUser = {
-          uid: result.user.uid,
-          email: result.user.email || '',
-          displayName: result.user.displayName || (result.user.email?.split('@')[0] || 'User'),
-          photoURL: result.user.photoURL || '',
-          role: isSuperAdmin ? 'ADMIN' : 'STUDENT',
-          createdAt: new Date().toISOString(),
-        };
-        await setDoc(userDocRef, newUser);
+        // Sign out immediately if no record exists in Firestore
+        await signOut(auth);
+        throw new Error('No account found for this Google email. Please register using your email and password first to set up your profile and role.');
       }
+      // If doc exists, internal state user will be set by the onSnapshot listener in useEffect
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
         console.log('User closed the sign-in popup.');
@@ -97,8 +91,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);                
       
-      const isSuperAdmin = email === 'djignaci1@gmail.com' || email === 'djignaci2@gmail.com';
-      const finalRole = isSuperAdmin ? 'ADMIN' : role;
+      const isSuperAdminCheck = email === 'djignaci1@gmail.com' || email === 'djignaci2@gmail.com';
+      // If they are a super admin, we let them choose their role for testing, but default to ADMIN if they choose ADMIN.
+      // Actually, just respect the passed role since they are the ones choosing it in the UI.
+      const finalRole = role;
 
       // Create Firestore document immediately
       const userDocRef = doc(db, 'users', result.user.uid);
@@ -115,7 +111,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await setDoc(userDocRef, newUser);
       } catch (firestoreErr: any) {
         console.error("Failed to create Firestore profile during registration:", firestoreErr);
-        // We don't throw here yet, we'll try to update profile anyway
+        // Throw the error so the user knows signup failed (likely rules or network)
+        throw firestoreErr;
       }
 
       // Update Firebase Auth profile
@@ -132,7 +129,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetPassword = async (email: string) => {
-    await sendPasswordResetEmail(auth, email);
+    const actionCodeSettings = {
+      url: window.location.origin,
+      handleCodeInApp: false
+    };
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
   };
 
   const logout = async () => {

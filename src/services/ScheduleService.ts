@@ -80,20 +80,61 @@ export const ScheduleService = {
         throw new Error('You already have an active booking. Please reschedule your existing one.');
       }
 
-      const booking: Omit<BookingSession, 'id'> = {
+      const booking: Omit<BookingSession, 'id'> & { rescheduleCount: number } = {
         studentId,
         date,
         timeSlot,
         status: 'CONFIRMED',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        rescheduleCount: 0
       };
 
       const docRef = await addDoc(collection(db, 'appointments'), booking);
       await AuditService.log(studentId, 'BOOK', 'SCHEDULE', `Booked session for ${date} at ${timeSlot}`);
       return docRef.id;
     } catch (error: any) {
-      if (error.message.includes('slot has just been taken') || error.message.includes('already have an active booking')) throw error;
+      if (error.message.includes('taken') || error.message.includes('active booking')) throw error;
       handleFirestoreError(error, OperationType.WRITE, 'appointments');
+      throw error;
+    }
+  },
+
+  async rescheduleSession(bookingId: string, studentId: string, newDate: string, newTimeSlot: string) {
+    try {
+      const docRef = doc(db, 'appointments', bookingId);
+      const bookingSnap = await getDocs(query(collection(db, 'appointments'), where('__name__', '==', bookingId)));
+      if (bookingSnap.empty) throw new Error('Booking not found');
+      
+      const bookingData = bookingSnap.docs[0].data();
+      const count = bookingData.rescheduleCount || 0;
+
+      if (count >= 2) {
+        throw new Error('Reschedule limit reached. You can only reschedule a session twice.');
+      }
+
+      // Conflict Check for new slot
+      const conflictQ = query(
+        collection(db, 'appointments'),
+        where('date', '==', newDate),
+        where('timeSlot', '==', newTimeSlot),
+        where('status', '==', 'CONFIRMED')
+      );
+      const conflictSnap = await getDocs(conflictQ);
+      if (!conflictSnap.empty) {
+        throw new Error('The new time slot is already taken.');
+      }
+
+      await updateDoc(docRef, {
+        date: newDate,
+        timeSlot: newTimeSlot,
+        rescheduleCount: count + 1,
+        updatedAt: new Date().toISOString()
+      });
+
+      await AuditService.log(studentId, 'RESCHEDULE', 'SCHEDULE', `Rescheduled session ${bookingId} to ${newDate} at ${newTimeSlot}`);
+    } catch (error: any) {
+      if (error.message.includes('limit reached') || error.message.includes('already taken')) throw error;
+      handleFirestoreError(error, OperationType.WRITE, `appointments/${bookingId}`);
       throw error;
     }
   },

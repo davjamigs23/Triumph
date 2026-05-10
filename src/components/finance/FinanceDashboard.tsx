@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn, handleFirestoreError, OperationType } from '../../lib/utils';
 import { db } from '../../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import DocumentVerification from '../admin/DocumentVerification';
+import AdminReceipts from '../admin/AdminReceipts';
 import AdminAuditLogs from '../admin/AdminAuditLogs';
 
 const StatCard = ({ title, value, icon, color }: any) => (
@@ -47,24 +47,54 @@ export default function FinanceDashboard() {
   });
 
   useEffect(() => {
-    // Real-time stats sync
-    const q = query(collection(db, 'documents'), where('type', '==', 'RECEIPT'));
-    const unsubscribe = onSnapshot(q, 
+    // Real-time stats sync - combining both sources
+    const qDocs = query(collection(db, 'documents'), where('type', '==', 'RECEIPT'));
+    const qReceipts = query(collection(db, 'receipts'));
+
+    let docsList: any[] = [];
+    let receiptsList: any[] = [];
+
+    const updateStats = () => {
+      const all = [...docsList, ...receiptsList];
+      const pending = all.filter(d => 
+        (d.source === 'SUBMISSION' && d.status === 'PENDING' && d.financeStatus !== 'VERIFIED') ||
+        (d.source === 'MANUAL' && d.status === 'PENDING')
+      ).length;
+      
+      const verified = all.filter(d => 
+        (d.source === 'SUBMISSION' && d.financeStatus === 'VERIFIED') ||
+        (d.source === 'MANUAL' && d.status === 'PAID')
+      ).length;
+
+      const verifiedToday = all.filter(d => {
+        const verifyDateStr = d.source === 'SUBMISSION' ? d.financeVerifiedAt : d.date;
+        return verifyDateStr?.startsWith(new Date().toISOString().split('T')[0]);
+      }).length;
+      
+      setStats({
+        pendingReceipts: pending,
+        verifiedToday: verifiedToday,
+        totalVerified: verified
+      });
+    };
+
+    const unsubDocs = onSnapshot(qDocs, 
       (snapshot) => {
-        const docs = snapshot.docs.map(d => d.data());
-        const pending = docs.filter(d => d.status === 'PENDING' && d.financeStatus !== 'VERIFIED').length;
-        const verified = docs.filter(d => d.financeStatus === 'VERIFIED').length;
-        
-        setStats({
-          pendingReceipts: pending,
-          verifiedToday: docs.filter(d => d.financeVerifiedAt?.startsWith(new Date().toISOString().split('T')[0])).length,
-          totalVerified: verified
-        });
+        docsList = snapshot.docs.map(d => ({ ...d.data(), source: 'SUBMISSION' }));
+        updateStats();
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'documents')
     );
 
-    return () => unsubscribe();
+    const unsubReceipts = onSnapshot(qReceipts, 
+      (snapshot) => {
+        receiptsList = snapshot.docs.map(d => ({ ...d.data(), source: 'MANUAL' }));
+        updateStats();
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'receipts')
+    );
+
+    return () => { unsubDocs(); unsubReceipts(); };
   }, []);
 
   const menuItems = [
@@ -105,14 +135,6 @@ export default function FinanceDashboard() {
               </button>
             ))}
           </nav>
-
-          <button 
-            onClick={logout}
-            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all mt-8"
-          >
-            <LogOut className="h-5 w-5 opacity-40" />
-            Sign Out
-          </button>
         </div>
       </aside>
 
@@ -127,10 +149,13 @@ export default function FinanceDashboard() {
           </div>
           
           <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-green-50 rounded-full border border-green-100">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-green-700">Financial System Online</span>
-            </div>
+            <button 
+              onClick={logout}
+              className="text-[10px] uppercase font-black hover:text-[#ef4444] transition-colors tracking-widest text-[#0d1b2a]/60 flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-[10px] font-black uppercase text-gray-400">{user?.role}</p>
@@ -211,7 +236,7 @@ export default function FinanceDashboard() {
 
           {activeTab === 'receipts' && (
             <div className="space-y-6">
-              <DocumentVerification filterType="RECEIPT" />
+              <AdminReceipts />
             </div>
           )}
           

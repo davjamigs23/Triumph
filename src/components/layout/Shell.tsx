@@ -15,7 +15,8 @@ import {
   History,
   MessageSquare,
   Users,
-  Bell
+  Bell,
+  FileCheck
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -27,6 +28,7 @@ import StudentDashboard from '../student/StudentDashboard';
 import DocumentVerification from '../admin/DocumentVerification';
 import SmartScheduling from '../student/SmartScheduling';
 import MyDocuments from '../student/MyDocuments';
+import StudentNotifications from '../student/StudentNotifications';
 import FAQChat from '../student/FAQChat';
 import MyProfile from '../student/MyProfile';
 import AdminDashboard from '../admin/AdminDashboard';
@@ -83,6 +85,8 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
     // Admin & Staff Views
     const isAdminStaff = ['ADMIN', 'FINANCE', 'PHOTOGRAPHER', 'LAYOUT'].includes(user?.role || '');
     
+    if (activeTab === 'profile') return <MyProfile />;
+
     if (isAdminStaff) {
       if (activeTab === 'dashboard') return <AdminDashboard activeTab="dashboard" setActiveTab={setActiveTab} />;
       if (activeTab === 'verification') return <DocumentVerification />;
@@ -100,6 +104,7 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
     if (activeTab === 'dashboard') return <StudentDashboard activeTab="dashboard" setActiveTab={setActiveTab} />;
     if (activeTab === 'documents') return <MyDocuments />;
     if (activeTab === 'schedule') return <SmartScheduling />;
+    if (activeTab === 'notifications') return <StudentNotifications />;
     if (activeTab === 'help') return <FAQChat />;
     if (activeTab === 'profile') return <MyProfile />;
     
@@ -113,25 +118,34 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
       { id: 'verification', label: 'Document Verification', icon: <ClipboardList /> },
       { id: 'schedule-admin', label: 'Schedule Management', icon: <Calendar /> },
       { id: 'batches', label: 'Batch Management', icon: <Layers /> },
+      { id: 'announcements', label: 'Announcements', icon: <Bell /> },
     ]},
     { section: 'FINANCE & SYSTEM', items: [
+      { id: 'compliance', label: 'Compliance Tracking', icon: <FileCheck /> },
       { id: 'receipts', label: 'Receipts', icon: <FileText /> },
-      { id: 'announcements', label: 'Announcements', icon: <Bell /> },
-      { id: 'compliance', label: 'Compliance Tracking', icon: <History /> },
       { id: 'audit', label: 'Audit Logs', icon: <History /> }
     ]}
   ] : user?.role === 'PHOTOGRAPHER' ? [
     { section: 'MAIN', items: [
       { id: 'schedule-admin', label: 'Photographer Schedule', icon: <Calendar /> },
+    ]},
+    { section: 'ACCOUNT', items: [
+      { id: 'profile', label: 'My Profile', icon: <UserIcon /> },
     ]}
   ] : user?.role === 'LAYOUT' ? [
     { section: 'MAIN', items: [
       { id: 'batches', label: 'Yearbook Layouts', icon: <Layers /> },
+    ]},
+    { section: 'ACCOUNT', items: [
+      { id: 'profile', label: 'My Profile', icon: <UserIcon /> },
     ]}
   ] : user?.role === 'FINANCE' ? [
     { section: 'MAIN', items: [
       { id: 'receipts', label: 'Receipts', icon: <FileText /> },
       { id: 'audit', label: 'Audit Logs', icon: <History /> },
+    ]},
+    { section: 'ACCOUNT', items: [
+      { id: 'profile', label: 'My Profile', icon: <UserIcon /> },
     ]}
   ] : [
     { section: 'MAIN', items: [
@@ -154,18 +168,7 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
             <TriumphLogo showText={true} className="h-full drop-shadow-xl transition-transform hover:scale-105" light={true} />
           </div>
           
-          <div className="flex w-full bg-white/5 rounded-lg p-1.5 mb-10 border border-white/5">
-            <button className={cn(
-               "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded transition-all",
-               user?.role === 'STUDENT' ? "bg-[#fbbd08] text-[#0d1b2a] shadow-[0_2px_10px_rgba(251,189,8,0.3)]" : "text-white/40 hover:text-white"
-            )}>Student</button>
-            <button className={cn(
-               "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded transition-all",
-               user?.role === 'ADMIN' ? "bg-[#fbbd08] text-[#0d1b2a] shadow-[0_2px_10px_rgba(251,189,8,0.3)]" : "text-white/40 hover:text-white"
-            )}>Admin</button>
-          </div>
-
-          <nav className="w-full space-y-8">
+          <nav className="w-full space-y-8 mt-10">
             {menuItems.map((group) => (
               <div key={group.section}>
                 <div className="text-[9px] font-black tracking-[0.2em] text-white/30 mb-3 px-2 uppercase">{group.section}</div>
@@ -191,20 +194,6 @@ export default function Shell({ children, activeTab, setActiveTab }: ShellProps)
         <header className="h-[72px] bg-[#fbbd08] flex items-center justify-end px-12 shrink-0 shadow-sm relative z-10 w-full">
           <div className="flex items-center gap-10">
             <div className="flex items-center gap-5">
-              {user?.role !== 'ADMIN' && (
-                <div 
-                  onClick={() => setActiveTab('profile')}
-                  className="flex items-center gap-5 group cursor-pointer pl-8 h-10"
-                >
-                  <div className="h-10 w-10 rounded-full border-2 border-[#0d1b2a]/20 overflow-hidden flex items-center justify-center bg-white/50 shadow-sm">
-                    {user?.photoURL ? (
-                      <img src={user.photoURL} alt="User" referrerPolicy="no-referrer" />
-                    ) : (
-                      <UserIcon className="h-6 w-6 text-[#0d1b2a]" />
-                    )}
-                  </div>
-                </div>
-              )}
               <button 
                 onClick={logout}
                 className="text-[10px] uppercase font-black hover:text-[#ef4444] transition-colors tracking-widest text-[#0d1b2a]/60 flex items-center gap-2"

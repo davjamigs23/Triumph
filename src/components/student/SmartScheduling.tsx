@@ -28,6 +28,7 @@ export default function SmartScheduling() {
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [feedback, setFeedback] = useState<any>(null);
+  const [pendingSlot, setPendingSlot] = useState<string | null>(null);
 
   const fetchCurrentBooking = async () => {
     if (!user) return;
@@ -55,17 +56,32 @@ export default function SmartScheduling() {
     }
   }, [selectedDate, isBookingOpen]);
 
-  const handleBook = async (slot: string) => {
-    if (!user) return;
+  const initiateBooking = (slot: string) => {
+    setPendingSlot(slot);
+  };
+
+  const cancelPendingBooking = () => {
+    setPendingSlot(null);
+  }
+
+  const handleBook = async () => {
+    if (!user || !pendingSlot) return;
     setBookingLoading(true);
     try {
-      await ScheduleService.bookSession(user.uid, selectedDate, slot);
-      await NotificationService.sendNotification(user.uid, 'Session Booked', `You have successfully booked your session for ${selectedDate} at ${slot}`, 'reminder');
+      if (currentBooking) {
+        await ScheduleService.rescheduleSession(currentBooking.id, user.uid, selectedDate, pendingSlot);
+        await NotificationService.sendNotification(user.uid, 'Session Rescheduled', `You have successfully rescheduled your session to ${selectedDate} at ${pendingSlot}`, 'reminder');
+      } else {
+        await ScheduleService.bookSession(user.uid, selectedDate, pendingSlot);
+        await NotificationService.sendNotification(user.uid, 'Session Booked', `You have successfully booked your session for ${selectedDate} at ${pendingSlot}. A reminder notification will be sent 24 hours before the scheduled session.`, 'reminder');
+      }
       setIsBookingOpen(false);
+      setPendingSlot(null);
       await fetchCurrentBooking();
-      setFeedback({ title: 'Success', message: 'Session successfully booked!', type: 'info', onClose: () => setFeedback(null) });
+      setFeedback({ title: 'Success', message: currentBooking ? 'Session successfully rescheduled!' : `Session successfully booked for ${selectedDate} at ${pendingSlot}! A reminder notification will be sent 24 hours before the scheduled session.`, type: 'info', onClose: () => setFeedback(null) });
     } catch (err: any) {
       setFeedback({ title: 'Booking Error', message: err.message, type: 'error', onClose: () => setFeedback(null) });
+      setPendingSlot(null);
     } finally {
       setBookingLoading(false);
     }
@@ -140,41 +156,47 @@ export default function SmartScheduling() {
              </div>
              
              {currentBooking ? (
-               <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                 <div className="space-y-6">
-                   <div>
-                     <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full">Current Appointment</span>
-                     <h3 className="text-5xl font-black tracking-tighter mt-4 uppercase leading-none">
-                       {formatDate(currentBooking.date)}
-                     </h3>
-                     <div className="flex items-center gap-2 mt-2 opacity-80 text-lg font-black tracking-widest">
-                       <Clock className="h-5 w-5" />
-                       {currentBooking.timeSlot}
-                     </div>
-                   </div>
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                  <div className="space-y-6">
+                    <div>
+                      <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full">Current Appointment</span>
+                      <h3 className="text-5xl font-black tracking-tighter mt-4 uppercase leading-none">
+                        {formatDate(currentBooking.date)}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-2 opacity-80 text-lg font-black tracking-widest">
+                        <Clock className="h-5 w-5" />
+                        {currentBooking.timeSlot}
+                      </div>
+                    </div>
 
-                   <div className="space-y-2">
-                     <div className="flex items-center gap-3 opacity-90">
-                       <MapPin className="h-4 w-4 text-[#fbbd08]" />
-                       <span className="text-sm font-bold uppercase tracking-wide">Main University Studio - Bldg B</span>
-                     </div>
-                     <div className="flex items-center gap-3 opacity-90">
-                       <User className="h-4 w-4 text-[#fbbd08]" />
-                       <span className="text-sm font-bold uppercase tracking-wide">Triumph Photography Team</span>
-                     </div>
-                   </div>
-                 </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 opacity-90">
+                        <MapPin className="h-4 w-4 text-[#fbbd08]" />
+                        <span className="text-sm font-bold uppercase tracking-wide">Main University Studio - Bldg B</span>
+                      </div>
+                      <div className="flex items-center gap-3 opacity-90">
+                        <User className="h-4 w-4 text-[#fbbd08]" />
+                        <span className="text-sm font-bold uppercase tracking-wide">Triumph Photography Team</span>
+                      </div>
+                    </div>
+                  </div>
 
-                 <div className="flex flex-col gap-3 w-full md:w-auto">
-                   <button 
-                    onClick={handleCancelClick}
-                    className="bg-white/10 hover:bg-white/20 text-white font-black rounded-xl h-12 shadow-md uppercase text-[11px] tracking-widest border border-white/20 px-8 transition-all"
-                   >
-                     Cancel Appointment
-                   </button>
-                 </div>
-               </div>
-             ) : (
+                  <div className="flex flex-col gap-3 w-full md:w-auto">
+                    <button 
+                      onClick={() => setIsBookingOpen(true)}
+                      className="bg-[#fbbd08] text-[#0d1b2a] font-black rounded-xl h-12 shadow-lg shadow-[#fbbd08]/20 uppercase text-[11px] tracking-widest px-8 hover:scale-[1.02] transition-all"
+                    >
+                      Reschedule
+                    </button>
+                    <button 
+                     onClick={handleCancelClick}
+                     className="bg-white/10 hover:bg-white/20 text-white font-black rounded-xl h-12 shadow-md uppercase text-[11px] tracking-widest border border-white/20 px-8 transition-all"
+                    >
+                      Cancel Appointment
+                    </button>
+                  </div>
+                </div>
+              ) : (
                <div className="relative z-10 py-12 text-center space-y-4">
                   <CalendarIcon className="h-16 w-16 mx-auto opacity-40" />
                   <h3 className="text-2xl font-black uppercase tracking-tighter">No session scheduled</h3>
@@ -336,27 +358,56 @@ export default function SmartScheduling() {
                    />
                 </div>
 
-                <div>
-                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-4">Available Times on {selectedDate}</label>
-                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {timeSlots.map((slot) => {
-                        const isBooked = bookedSlots.includes(slot);
-                        return (
-                          <button
-                            key={slot}
-                            disabled={isBooked || bookingLoading}
-                            onClick={() => handleBook(slot)}
-                            className={cn(
-                              "py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                              isBooked ? "bg-gray-100 text-gray-300 cursor-not-allowed" : "bg-white border border-gray-100 text-[#1a237e] hover:border-[#fbbd08] hover:bg-[#fbbd08]/5"
-                            )}
-                          >
-                            {slot}
-                          </button>
-                        );
-                      })}
-                   </div>
-                </div>
+                 {pendingSlot ? (
+                    <div className="space-y-6">
+                        <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 flex flex-col gap-4 items-center text-center">
+                            <h4 className="text-[13px] font-black uppercase tracking-widest text-[#0d1b2a]">Confirm Booking</h4>
+                            <p className="text-sm font-bold text-amber-800">
+                                You are about to book a session on <br/>
+                                <span className="text-xl text-[#0d1b2a]">{formatDate(selectedDate)}</span> <br/>
+                                at <span className="text-xl text-[#0d1b2a]">{pendingSlot}</span>
+                            </p>
+                        </div>
+                        <div className="flex gap-4">
+                            <button 
+                                disabled={bookingLoading}
+                                onClick={cancelPendingBooking}
+                                className="flex-1 py-4 border border-gray-100 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all font-sans"
+                            >
+                                Back
+                            </button>
+                            <button 
+                                disabled={bookingLoading}
+                                onClick={handleBook}
+                                className="flex-1 py-4 bg-[#85b27a] text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:shadow-xl transition-all font-sans"
+                            >
+                                {bookingLoading ? 'Processing...' : 'Confirm'}
+                            </button>
+                        </div>
+                    </div>
+                 ) : (
+                    <div>
+                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-4">Available Times on {selectedDate}</label>
+                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {timeSlots.map((slot) => {
+                            const isBooked = bookedSlots.includes(slot);
+                            return (
+                              <button
+                                key={slot}
+                                disabled={isBooked || bookingLoading}
+                                onClick={() => initiateBooking(slot)}
+                                className={cn(
+                                  "py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                  isBooked ? "bg-gray-100 text-gray-300 cursor-not-allowed" : "bg-white border border-gray-100 text-[#1a237e] hover:border-[#fbbd08] hover:bg-[#fbbd08]/5"
+                                )}
+                              >
+                                {slot}
+                              </button>
+                            );
+                          })}
+                       </div>
+                    </div>
+                 )}
               </div>
 
               {bookingLoading && (

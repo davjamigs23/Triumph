@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ComplianceService, ComplianceStats } from '../../services/ComplianceService';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { AlertCircle, FileCheck, Calendar } from 'lucide-react';
+import { AlertCircle, FileCheck, Calendar, Download } from 'lucide-react';
 import FeedbackModal from '../ui/FeedbackModal';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function AdminCompliance() {
   const [stats, setStats] = useState<ComplianceStats | null>(null);
@@ -67,6 +69,67 @@ export default function AdminCompliance() {
     });
    };
 
+   const handleExportCSV = () => {
+    if (!nonCompliant.length) return;
+    const headers = ['Student Name', 'Missing Requirement'];
+    const rows = nonCompliant.map(s => `"${s.name}","${s.missing}"`);
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `compliance_report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setFeedback({ title: 'Exported', message: 'CSV report downloaded.', type: 'info', onClose: () => setFeedback(null) });
+   };
+
+   const handleExportPDF = () => {
+    if (!nonCompliant.length) return;
+    const doc = new jsPDF();
+    
+    // Header background
+    doc.setFillColor(13, 27, 42); // #0d1b2a
+    doc.rect(0, 0, doc.internal.pageSize.width, 45, 'F');
+    
+    // Title
+    doc.setTextColor(251, 189, 8); // #fbbd08
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('COMPLIANCE REPORT', 14, 25);
+    
+    // Subtitle
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 35);
+    
+    autoTable(doc, {
+      startY: 55,
+      head: [['Student Name', 'Missing Requirement']],
+      body: nonCompliant.map(s => [s.name, s.missing]),
+      headStyles: {
+        fillColor: [26, 35, 126], // #1a237e
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 10,
+        halign: 'left'
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251] // bg-gray-50
+      },
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+        cellPadding: 6,
+        textColor: [13, 27, 42] // #0d1b2a
+      }
+    });
+
+    doc.save(`compliance_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    setFeedback({ title: 'Exported', message: 'PDF report downloaded.', type: 'info', onClose: () => setFeedback(null) });
+   };
+
   if (loading) return (
     <div className="h-64 flex items-center justify-center">
        <div className="animate-spin h-8 w-8 border-4 border-[#fbbd08] border-t-transparent rounded-full" />
@@ -76,9 +139,25 @@ export default function AdminCompliance() {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h2 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">Compliance Tracking</h2>
-        <p className="text-sm text-gray-500 font-medium">Monitor student progress and identify bottlenecks in the requirement process.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h2 className="text-3xl font-black tracking-tighter text-[#0d1b2a]">Compliance Tracking</h2>
+          <p className="text-sm text-gray-500 font-medium">Monitor student progress and identify bottlenecks in the requirement process.</p>
+        </div>
+        <div className="flex gap-2">
+            <button 
+                onClick={handleExportCSV}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-100 text-[#1a237e] text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+            >
+                <Download className="h-3 w-3" /> CSV
+            </button>
+            <button 
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-100 text-[#1a237e] text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+            >
+                <Download className="h-3 w-3" /> PDF
+            </button>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">

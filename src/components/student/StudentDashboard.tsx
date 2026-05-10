@@ -60,22 +60,16 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
   const [docs, setDocs] = useState<DocumentSubmission[]>([]);
   const [booking, setBooking] = useState<BookingSession | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
 
-    // Subscriptions
     const unsubDocs = DocumentService.subscribeToStudentDocuments(user.uid, (docs) => setDocs(docs));
     const unsubBooking = ScheduleService.subscribeToStudentBooking(user.uid, (booking) => setBooking(booking));
     const unsubNotifs = NotificationService.subscribeToNotifications(user.uid, (notifs) => setNotifications(notifs.slice(0, 3)));
     
-    // One time load
-    AnnouncementService.getAll().then((anns) => {
-        setAnnouncements(anns.slice(0, 3));
-        setLoading(false);
-    });
+    setLoading(false);
 
     return () => {
         unsubDocs();
@@ -92,215 +86,174 @@ export default function StudentDashboard({ activeTab, setActiveTab }: { activeTa
     return 'pending';
   };
 
-  const formatDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    } catch (e) {
-      return dateStr;
-    }
-  };
-
   const calculateProgress = () => {
     const requirements = [
       getDocStatus('CLEARANCE'),
-      getDocStatus('RECEIPT'),
       getDocStatus('BIRTH_CERTIFICATE'),
+      getDocStatus('RECEIPT'),
       booking ? 'complete' : 'action',
-      user?.displayName ? 'complete' : 'action', // Simplified profile check
+      (user?.displayName && user?.studentId && user?.course) ? 'complete' : 'action',
+      user?.quote ? 'complete' : 'action',
     ];
     const completeCount = requirements.filter(r => r === 'complete').length;
     return Math.round((completeCount / requirements.length) * 100);
   };
 
   if (activeTab !== 'dashboard') {
-    return null; // Shell content switching handles this
+    return null;
   }
 
   const progress = calculateProgress();
 
   return (
-    <div className="space-y-10">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-4xl font-black text-[#0d1b2a] tracking-tight">Dashboard</h1>
-          <p className="text-[12px] text-gray-400 font-bold uppercase tracking-widest mt-1">Track your yearbook requirements and upcoming sessions.</p>
-        </div>
+    <div className="space-y-6 animate-in fade-in duration-700">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-4xl font-black tracking-tighter text-[#0d1b2a]">Dashboard</h1>
+        <p className="text-[12px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+          Track your yearbook requirements and upcoming sessions.
+        </p>
       </div>
 
-      {user && !user.studentId && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-center gap-3">
-          <AlertCircle className="h-5 w-5" />
-          <p className="text-sm font-bold">
-            Please update your <span className="underline cursor-pointer" onClick={() => setActiveTab('profile')}>Student ID</span> in your profile to be recognized when submitting documents.
-          </p>
-        </div>
-      )}
-
-        {/* Main Grid */}
-      <div className="grid md:grid-cols-2 gap-8">
-        {/* Left Column */}
-        <div className="space-y-8">
-            {/* Welcome & Progress */}
-            <div className="bg-white border border-gray-100 rounded-3xl p-10 shadow-sm relative overflow-hidden group">
-              <div className="absolute top-0 right-0 h-full w-2 bg-[#fbbd08]/10 group-hover:w-4 transition-all" />
-              <div className="flex flex-col gap-8">
-                <div className="flex flex-col gap-4">
-                <div className="text-xl font-bold text-[#0d1b2a]">
-                  Welcome back, <span className="font-black text-[#1a237e] uppercase tracking-tight">{user?.displayName || 'Student'}!</span>
-                </div>
-                
-                <div className="flex items-center gap-4 text-xs font-black uppercase tracking-widest text-[#0d1b2a]">
-                  <span>Profile Progress: {progress}%</span>
-                  <div className="h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#fbbd08]" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-              </div>
-              </div>
-            </div>
-
-            {/* Checklist */}
-            <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/20">
-                <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0d1b2a]">Requirements Checklist</h3>
-              </div>
-              <div className="flex-1 divide-y divide-gray-50">
-                <RequirementItem 
-                  label="Personal Details" 
-                  status={user?.displayName ? 'complete' : 'action'} 
-                  onClick={() => setActiveTab('profile')}
-                />
-                <RequirementItem 
-                  label="Clearance Form" 
-                  status={getDocStatus('CLEARANCE')} 
-                  onClick={() => setActiveTab('documents')}
-                />
-                <RequirementItem 
-                  label="Birth Certificate" 
-                  status={getDocStatus('BIRTH_CERTIFICATE')} 
-                  onClick={() => setActiveTab('documents')}
-                />
-                <RequirementItem 
-                  label="Payment Receipt" 
-                  status={getDocStatus('RECEIPT')} 
-                  onClick={() => setActiveTab('documents')}
-                />
-                <RequirementItem 
-                  label="Photo Session" 
-                  status={booking ? 'complete' : 'action'} 
-                  onClick={() => setActiveTab('schedule')}
-                />
-              </div>
-            </div>
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-8">
-          {/* Notifications */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm min-h-[300px]">
-             <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0d1b2a] mb-6">Notifications</h3>
-             <div className="space-y-4">
-                {notifications.length > 0 ? notifications.slice(0, 2).map((notif) => {
-                    const isRecent = new Date().getTime() - new Date(notif.createdAt).getTime() < 86400000;
-                    return (
-                        <div key={notif.id} className={cn(
-                            "text-xs font-medium text-gray-600 border-l-2 border-[#1a237e] pl-4 py-2 rounded-r-lg",
-                            isRecent ? "bg-amber-50" : "bg-gray-50/50"
-                        )}>
-                            <div className="flex justify-between items-center mb-1 uppercase tracking-widest">
-                                <span className="font-black text-[10px] text-[#1a237e]">{notif.title} {isRecent && <span className="text-amber-600">(New)</span>}</span>
-                                <span className="text-[9px] text-gray-400">{new Date(notif.createdAt).toLocaleString()}</span>
-                            </div>
-                            {notif.message}
-                        </div>
-                    );
-                }) : <div className="text-xs text-gray-400">No new notifications.</div>}
-             </div>
+      {/* Warnings */}
+      <div className="space-y-3">
+        {!user?.studentId && (
+          <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl flex items-center gap-4 text-orange-800">
+            <AlertCircle className="h-6 w-6 text-orange-600" />
+            <p className="text-[12px] font-bold">Please update your Student ID and Course in your profile to be recognized when submitting documents.</p>
           </div>
-          
-          {/* Booking Card */}
-          <div className={cn(
-            "rounded-2xl p-8 shadow-sm transition-all cursor-pointer h-auto flex flex-col justify-between",
-            booking ? "bg-[#85b27a] text-white" : "bg-[#1a237e] text-white"
-          )} onClick={() => setActiveTab('schedule')}>
-            <div className="flex justify-between items-start mb-6">
-               <div className="text-[11px] font-black uppercase tracking-widest opacity-70">PHOTO SESSION</div>
-               <div className={cn("text-[9px] font-black uppercase px-4 py-1.5 rounded-full", booking ? "bg-white/20" : "bg-[#fbbd08] text-[#0d1b2a]")}>
-                  {booking ? 'Booked' : 'Not Booked'}
+        )}
+        {calculateProgress() < 100 && calculateProgress() > 0 && (
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-4 text-amber-800">
+            <Clock className="h-6 w-6 text-amber-600" />
+            <p className="text-[12px] font-bold">You have pending requirements. Make sure to complete them before the deadline to ensure your inclusion in the yearbook.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Left: Columns */}
+        <div className="lg:col-span-2 space-y-8">
+      <div className="bg-[#1a237e] rounded-3xl p-10 text-white relative overflow-hidden shadow-2xl">
+         <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="flex items-center gap-6">
+                <div className="h-20 w-20 rounded-2xl border-4 border-[#fbbd08]/30 overflow-hidden bg-white/5">
+                   {user?.photoURL ? (
+                      <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                   ) : (
+                      <div className="w-full h-full flex items-center justify-center"><UserIcon className="h-10 w-10 text-white/20" /></div>
+                   )}
+                </div>
+                <div>
+                   <h1 className="text-3xl font-black tracking-tight mb-1">
+                      Welcome back, <span className="text-[#fbbd08]">{user?.displayName?.split(' ')[0] || 'Student'}!</span>
+                   </h1>
+                   <p className="text-white/60 text-[11px] font-black uppercase tracking-widest leading-relaxed">
+                      Your yearbook journey is <span className="text-white">{progress}%</span> complete. 
+                   </p>
+                </div>
+            </div>
+            <div className="w-full md:w-64 space-y-3">
+               <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/50">
+                  <span>Profile Progress</span>
+                  <span>{progress}%</span>
+               </div>
+               <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
+                  <div 
+                    className="h-full bg-[#fbbd08]"
+                    style={{ width: `${progress}%` }}
+                  />
                </div>
             </div>
-            
-            {booking ? (
-              <div className="mb-6">
-                <h3 className="text-xl font-black">{formatDate(booking.date)}</h3>
-                <p className="text-sm font-bold opacity-80 uppercase tracking-widest">{booking.timeSlot}</p>
-              </div>
-            ) : (
-                <p className="text-sm font-bold opacity-80 mb-6">No session booked yet.</p>
-            )}
-            
-            <button className="w-full text-[11px] font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 py-3.5 rounded-xl transition-all">
-              {booking ? 'Reschedule' : 'Book Session'}
-            </button>
-          </div>
-        </div>
+         </div>
       </div>
 
-      {/* Yearbook Layout Preview */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-            <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-[#0d1b2a]">Yearbook Layout Preview</h3>
-            <span className="text-[10px] font-black text-[#85b27a] uppercase tracking-widest bg-[#85b27a]/10 px-3 py-1 rounded-full">Live Preview</span>
-        </div>
-        <div className="p-12 flex justify-center bg-gray-50/50">
-           {/* Yearbook Card */}
-           <div className="w-[300px] h-[500px] bg-gradient-to-b from-[#000e40] to-[#0d21a1] shadow-2xl rounded-sm p-6 flex flex-col items-center relative overflow-hidden group text-white font-serif">
-              
-              {/* University Logo */}
-              <div className="w-16 h-16 mb-3 flex items-center justify-center">
-                  <img src="https://upload.wikimedia.org/wikipedia/en/e/e2/Ateneo_de_Naga_University_logo.png" alt="ADNU Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+      {/* Quick Actions */}
+      <div className="grid md:grid-cols-3 gap-6">
+         {[
+           { id: 'docs', label: 'Upload Documents', desc: 'Submit requirements', icon: <Upload className="h-6 w-6" />, color: 'text-indigo-600 bg-indigo-50 border-indigo-100', tab: 'documents' },
+           { id: 'book', label: 'Book Session', desc: 'Schedule photoshoot', icon: <Calendar className="h-6 w-6" />, color: 'text-amber-600 bg-amber-50 border-amber-100', tab: 'schedule' },
+           { id: 'profile', label: 'Update Profile', desc: 'Add info & quote', icon: <UserIcon className="h-6 w-6" />, color: 'text-emerald-600 bg-emerald-50 border-emerald-100', tab: 'profile' }
+         ].map((action) => (
+           <button 
+            key={action.id}
+            onClick={() => setActiveTab(action.tab)}
+            className="flex items-center gap-5 p-6 bg-white border border-gray-100 rounded-3xl hover:shadow-xl hover:shadow-[#1a237e]/5 transition-all hover:-translate-y-1 group"
+           >
+              <div className={cn("p-4 rounded-2xl transition-transform group-hover:scale-110 border", action.color)}>
+                  {action.icon}
               </div>
-
-              {/* Header Text */}
-              <h2 className="text-[12px] font-bold text-center tracking-[0.15em] uppercase mb-1">ATENEO DE NAGA UNIVERSITY</h2>
-              <h3 className="text-[10px] font-light text-center tracking-[0.2em] uppercase mb-6 text-white/90">SENIOR HIGH SCHOOL</h3>
-              
-              <h1 className="text-[14px] font-bold text-center tracking-[0.1em] uppercase mb-6 text-white/80">
-                  GRADUATING CLASS OF 2026
-              </h1>
-
-              {/* Photo Frame */}
-              <div className="w-48 h-60 border-4 border-[#c5a059] mb-6 overflow-hidden bg-gray-800 flex items-center justify-center shadow-2xl">
-                 {user?.photoURL ? (
-                    <img src={user.photoURL} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                 ) : (
-                    <UserIcon className="h-16 w-16 text-white/20" />
-                 )}
+              <div className="text-left flex-1">
+                 <div className="text-[14px] font-black tracking-tight text-[#0d1b2a] group-hover:text-[#1a237e] transition-colors">{action.label}</div>
+                 <div className="text-[11px] font-bold text-gray-400 mt-0.5">{action.desc}</div>
               </div>
-              
-              {/* Student Name */}
-              <h4 className="text-[22px] font-bold text-[#c5a059] uppercase text-center leading-tight">
-                  {user?.displayName || 'Student Name'}
-              </h4>
-              
-              {/* Student Quote (replaces Latin Honor) */}
-              <div className="mt-4 px-4">
-                 <p className="text-[10px] italic text-white/80 text-center leading-relaxed font-sans">
-                   "{user?.quote || 'No quote added yet. Update your profile to set your yearbook quote.'}"
-                 </p>
-              </div>
+           </button>
+         ))}
+      </div>
 
-              {/* Interactive Edit Overlay */}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm">
-                 <button onClick={() => setActiveTab('profile')} className="px-6 py-2 bg-white text-[#000e40] text-[10px] font-black uppercase tracking-widest rounded-lg shadow-xl hover:bg-gray-100 transition-all">Edit Details</button>
+           {/* Checklist */}
+           <div className="bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden flex flex-col">
+              <div className="px-8 py-6 border-b border-gray-100">
+                  <h3 className="text-[13px] font-black uppercase tracking-widest text-[#0d1b2a]">Requirements Checklist</h3>
+              </div>
+              <div className="divide-y divide-gray-50">
+                <RequirementItem label="Personal Details" status={(user?.displayName && user?.studentId && user?.course) ? 'complete' : 'action'} onClick={() => setActiveTab('profile')} />
+                <RequirementItem label="Clearance Form" status={getDocStatus('CLEARANCE')} onClick={() => setActiveTab('documents')} />
+                <RequirementItem label="Birth Certificate" status={getDocStatus('BIRTH_CERTIFICATE')} onClick={() => setActiveTab('documents')} />
+                <RequirementItem label="Payment Receipt" status={getDocStatus('RECEIPT')} onClick={() => setActiveTab('documents')} />
+                <RequirementItem label="Photo Session" status={booking ? 'complete' : 'action'} onClick={() => setActiveTab('schedule')} />
               </div>
            </div>
+
+            {/* Quick Actions removed from here */}
+        </div>
+
+        {/* Right: Notifications & Session */}
+        <div className="space-y-8">
+            {/* Notifications */}
+            <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm min-h-64">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-[12px] font-black uppercase tracking-widest text-[#0d1b2a]">Notifications</h3>
+                    <Bell className="h-4 w-4 text-gray-300" />
+                </div>
+                <div className="space-y-4">
+                    {notifications.length > 0 ? notifications.map((notif) => (
+                        <div key={notif.id} className="p-4 bg-gray-50/50 hover:bg-gray-50 border border-gray-100 rounded-xl transition-all cursor-pointer">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className={cn(
+                                    "text-[9px] font-black uppercase tracking-wider",
+                                    notif.title.toLowerCase().includes('rejected') ? "text-red-500" : "text-[#1a237e]"
+                                )}>{notif.title}</span>
+                                <span className="text-[8px] text-gray-400 font-bold uppercase">{new Date(notif.createdAt).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-[11px] text-[#0d1b2a] font-medium leading-relaxed line-clamp-2">{notif.message}</p>
+                        </div>
+                    )) : (
+                        <div className="py-12 flex flex-col items-center justify-center text-center opacity-30">
+                            <Bell className="h-12 w-12 mb-3 stroke-1" />
+                            <p className="text-[11px] font-black uppercase tracking-widest">No new alerts</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Photo Session */}
+            <div className="bg-[#1a237e] rounded-3xl p-8 text-white shadow-xl shadow-[#1a237e]/20">
+                <h3 className="text-[12px] font-black uppercase tracking-widest text-white/70 mb-2">Photo Session</h3>
+                <div className="inline-block px-3 py-1 bg-[#fbbd08] text-[#1a237e] text-[10px] font-black uppercase tracking-wider rounded-md mb-6">
+                   {booking ? 'Booked' : 'Not Booked'}
+                </div>
+                <p className="text-sm font-medium mb-8">
+                   {booking ? `Session scheduled for ${new Date(booking.date).toLocaleDateString()}` : "No session booked yet."}
+                </p>
+                <button 
+                    onClick={() => setActiveTab('schedule')}
+                    className="w-full py-3 bg-[#fbbd08] text-[#1a237e] rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-[#fbbd08]/90 transition-all"
+                >
+                    {booking ? 'View Session' : 'Book Session'}
+                </button>
+            </div>
         </div>
       </div>
     </div>

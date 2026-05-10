@@ -16,7 +16,7 @@ import { AuditService } from './AuditService';
 import { handleFirestoreError, OperationType } from '../lib/utils';
 
 export const DocumentService = {
-  async submitDocument(studentId: string, type: DocumentSubmission['type'], fileName: string, fileUrl: string = 'https://picsum.photos/seed/doc/800/1000') {
+  async submitDocument(studentId: string, type: DocumentSubmission['type'], fileName: string, fileUrl: string = 'https://picsum.photos/seed/doc/800/1000', extraData?: any) {
     try {
       const submission: Omit<DocumentSubmission, 'id'> = {
         studentId,
@@ -34,8 +34,8 @@ export const DocumentService = {
           studentId,
           purpose: 'YEARBOOK_FEE', // Default purpose
           status: 'PENDING',
-          date: new Date().toISOString(),
-          referenceNo: fileName,
+          date: extraData?.date || new Date().toISOString(),
+          referenceNo: extraData?.refNo || fileName,
           imageUrl: fileUrl,
           documentId: docRef.id
         });

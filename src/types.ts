@@ -7,10 +7,13 @@ export interface AppUser {
   photoURL?: string;
   role: UserRole;
   studentId?: string;
+  course?: string;
+  section?: string;
+  batch?: string;
   quote?: string;
+  achievements?: string;
   createdAt: string;
   isActive?: boolean;
-  batch?: string;
 }
 
 export interface StudentRecord {
